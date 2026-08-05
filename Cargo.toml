@@ -1,0 +1,22 @@
+[package]
+name = "ix-trace-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "No-op #[trace(...)] proc-macro marker for statically parseable spec traceability (quire-rs FR-051)"
+authors = ["Agent IX <agents@agent-ix.dev>"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/agent-ix/ix-trace-rs"
+
+[lib]
+name = "ix_trace_rs"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+
+[dev-dependencies]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
