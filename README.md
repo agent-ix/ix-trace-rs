@@ -58,22 +58,42 @@ ix-trace-rs = "0.1"
 Markers carry no runtime cost: they are gone by the time the compiler finishes
 expanding them.
 
+## Import it; do not path-qualify it
+
+```rust
+use ix_trace_rs::trace;
+
+#[trace("TC-707", "FR-047-AC-1")]
+#[test]
+fn tc707_shape_classification() { /* … */ }
+```
+
+`#[ix_trace_rs::trace("TC-707")]` compiles and behaves identically — and binds
+**nothing**. The module's canonical marker pattern is anchored on the literal
+attribute name (`#\[trace\(…\)\]`), so a leading path does not match. Nothing
+warns: the test passes, the id is visibly there in the source, and the row it
+should back silently reads as unbacked.
+
+This crate hit it in its own test suite. `TC-009` was a status lie until the
+qualified form was replaced — coverage went 19/29 with one lie to 26/29 with
+none, from that change alone.
+
 ## License
 
-AGPL-3.0-or-later, matching the rest of the Agent IX Rust projects.
+MIT OR Apache-2.0, at your option.
 
-An earlier revision of this branch proposed `MIT OR Apache-2.0` on the argument
-that the macro conveys none of its own source into a consumer, and that a
-permissive marker crate costs adopters no `deny.toml` edit. That trade was
-declined: the project licenses uniformly, and the marker is not carved out.
+This diverges deliberately from the AGPL-3.0-or-later used across the rest of
+the Agent IX Rust projects, for two reasons.
 
-Adopting repositories therefore need a crate-scoped exception, the same shape
-this repo's own `deny.toml` uses, which admits AGPL for this crate alone while
-the third-party allow-list stays permissive-only:
+The macro emits none of its own code into a consumer. A well-formed marker
+expands to the annotated item verbatim; a malformed one adds a
+`compile_error!`. Nothing of this crate's source is conveyed into anything that
+uses it, so there is no derived work for copyleft to protect — the value worth
+protecting lives in the engine that reads these markers, which stays AGPL.
 
-```toml
-[licenses]
-exceptions = [
-    { allow = ["AGPL-3.0-or-later"], crate = "ix-trace-rs" },
-]
-```
+And the marker is only worth having if it is everywhere. The sibling projects'
+`deny.toml` files allow AGPL for their own crate alone and keep the third-party
+allow-list permissive-only, which is a deliberate policy. An AGPL marker crate
+would have forced every adopting repository to either add an exception or
+weaken that policy — turning a one-line dev-dependency into a licensing
+decision, roughly 150 times.

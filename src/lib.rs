@@ -3,10 +3,28 @@
 //! parseable** and that the compiler refuses to let you misspell.
 //!
 //! ```ignore
+//! use ix_trace_rs::trace;
+//!
 //! #[trace("FR-047-AC-1", "TC-707")]
 //! #[test]
 //! fn tc707_shape_classification() { /* … */ }
 //! ```
+//!
+//! # Import it; do not path-qualify it
+//!
+//! Write `use ix_trace_rs::trace;` and then the bare `#[trace(...)]`. The
+//! path-qualified form compiles and does exactly the same thing at build
+//! time — and binds **nothing**:
+//!
+//! ```ignore
+//! #[ix_trace_rs::trace("TC-009")]   // compiles, and the coverage tool cannot see it
+//! ```
+//!
+//! The module's canonical marker pattern is `#\[trace\(…\)\]`, anchored on the
+//! literal attribute name, so a leading path does not match. Nothing warns: the
+//! test passes, the id looks present in the source, and the row it should back
+//! reads as unbacked. This crate hit it in its own suite — `TC-009` was a status
+//! lie until the qualified form was replaced.
 //!
 //! Both attributes expand to the annotated item **unchanged**. They exist so
 //! the marker is a real construct the compiler accepts and a coverage tool can

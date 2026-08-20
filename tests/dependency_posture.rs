@@ -6,7 +6,9 @@
 //! to review because the cost this bounds is paid by ~150 consuming
 //! repositories, one clean build at a time.
 
-#[ix_trace_rs::trace("TC-014", "NFR-001-AC-1", "NFR-001-AC-2")]
+use ix_trace_rs::trace;
+
+#[trace("TC-014", "NFR-001-AC-1", "NFR-001-AC-2")]
 #[test]
 fn tc014_the_crate_declares_no_runtime_dependencies() {
     let manifest = include_str!("../Cargo.toml");
