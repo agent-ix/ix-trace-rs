@@ -60,4 +60,20 @@ expanding them.
 
 ## License
 
-AGPL-3.0-or-later.
+AGPL-3.0-or-later, matching the rest of the Agent IX Rust projects.
+
+An earlier revision of this branch proposed `MIT OR Apache-2.0` on the argument
+that the macro conveys none of its own source into a consumer, and that a
+permissive marker crate costs adopters no `deny.toml` edit. That trade was
+declined: the project licenses uniformly, and the marker is not carved out.
+
+Adopting repositories therefore need a crate-scoped exception, the same shape
+this repo's own `deny.toml` uses, which admits AGPL for this crate alone while
+the third-party allow-list stays permissive-only:
+
+```toml
+[licenses]
+exceptions = [
+    { allow = ["AGPL-3.0-or-later"], crate = "ix-trace-rs" },
+]
+```

@@ -1,0 +1,5 @@
+error: `trace` takes comma-separated string literals; found `FR_047_AC_1`
+ --> tests/ui/not_a_string_literal.rs:3:9
+  |
+3 | #[trace(FR_047_AC_1)]
+  |         ^^^^^^^^^^^

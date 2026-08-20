@@ -1,0 +1,5 @@
+error: `not an id` is not a spec id: expected `KIND-NUMBER`, optionally followed by `-SUBKIND-NUMBER` (for example `TC-707` or `FR-047-AC-1`). `implements` does not check which kinds exist — only that the argument is an id and not prose.
+ --> tests/ui/implements_rejects_prose_too.rs:3:14
+  |
+3 | #[implements("not an id")]
+  |              ^^^^^^^^^^^

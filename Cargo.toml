@@ -3,7 +3,7 @@ name = "ix-trace-rs"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
-description = "No-op #[trace(...)] proc-macro marker for statically parseable spec traceability (quire-rs FR-051)"
+description = "Compile-checked #[trace(...)] and #[implements(...)] markers for statically parseable spec traceability (quire-rs FR-051). Zero runtime dependencies."
 authors = ["Agent IX <agents@agent-ix.dev>"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/agent-ix/ix-trace-rs"
@@ -16,6 +16,7 @@ proc-macro = true
 [dependencies]
 
 [dev-dependencies]
+trybuild = "1.0.111"
 
 [profile.release]
 lto = "thin"

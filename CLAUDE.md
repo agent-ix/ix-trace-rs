@@ -1,6 +1,6 @@
 # ix-trace-rs
 
-No-op #[trace(...)] proc-macro marker for statically parseable spec traceability (quire-rs FR-051)
+Compile-checked `#[trace(...)]` and `#[implements(...)]` markers for statically parseable spec traceability (quire-rs FR-051). Zero runtime dependencies.
 
 ## Commands
 
