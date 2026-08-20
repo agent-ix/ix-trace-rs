@@ -10,11 +10,16 @@ allow = [
     "Unicode-3.0",
     "Zlib",
 ]
-# No AGPL exception here, unlike the sibling repos. This crate is
-# MIT OR Apache-2.0 (see README) precisely so that adopting it costs a consumer
-# no deny.toml edit: quire-rs and its siblings allow AGPL for their own crate
-# only and keep this list permissive-only, so an AGPL marker crate would have
-# failed their licenses gate. The allow-list above already covers this crate.
+# Our own crate is AGPL-3.0-or-later (the project license); allow it here
+# WITHOUT permitting AGPL in third-party dependencies — the allow-list above
+# stays permissive-only. Mirrors the quire-rs deny.toml.
+#
+# Consumers need the matching entry in their own deny.toml, because the sibling
+# repos allow AGPL for their own crate only:
+#   { allow = ["AGPL-3.0-or-later"], crate = "ix-trace-rs" }
+exceptions = [
+    { allow = ["AGPL-3.0-or-later"], crate = "ix-trace-rs" },
+]
 confidence-threshold = 0.9
 
 [bans]

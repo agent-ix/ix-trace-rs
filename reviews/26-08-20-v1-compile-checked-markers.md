@@ -110,19 +110,27 @@ item on rejection would produce a cascade of unresolved-name errors at every
 call site, burying the real diagnostic. Verified by the fixtures: each records
 exactly one error.
 
-## Priority 4 — relicense consistency
+## Priority 4 — licensing
 
-Clean. `LICENSE` (AGPL text) deleted; `LICENSE-MIT` and `LICENSE-APACHE` added
-with the copyright line set to Agent IX; `Cargo.toml` reads
-`license = "MIT OR Apache-2.0"`; the README states the divergence and why; the
-`deny.toml` AGPL self-exception is removed with a comment explaining that the
-permissive allow-list now covers this crate. No stale AGPL reference remains in
-tracked files. `cargo deny check licenses` passes.
+The branch as reviewed relicensed the crate to MIT OR Apache-2.0, on the
+reasoning that the macro emits none of its own code into a consumer and that an
+AGPL marker would fail the sibling repos' `cargo deny check licenses` — they
+allow AGPL for their own crate only.
 
-The reason is load-bearing rather than aesthetic: `quire-rs` — the primary
-adoption target — allows AGPL for `crate = "quire-rs"` alone and keeps its
-third-party allow-list permissive-only. An AGPL marker crate would have failed
-its licenses gate.
+**That was overruled: the crate stays AGPL-3.0-or-later**, matching the rest of
+the Agent IX Rust projects. The reasoning above described a real adoption cost,
+not a licensing conclusion, and the cost is accepted rather than avoided.
+
+The consequence is one line per adopting repository:
+
+```toml
+exceptions = [
+    { allow = ["AGPL-3.0-or-later"], crate = "ix-trace-rs" },
+]
+```
+
+That is now stated in the README and in this crate's own `deny.toml` comment, so
+the next adopter meets it as documentation rather than as a failing gate.
 
 ## Gates
 
