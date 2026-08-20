@@ -60,20 +60,20 @@ expanding them.
 
 ## License
 
-MIT OR Apache-2.0, at your option.
+AGPL-3.0-or-later, matching the rest of the Agent IX Rust projects.
 
-This diverges deliberately from the AGPL-3.0-or-later used across the rest of
-the Agent IX Rust projects, for two reasons.
+An earlier revision of this branch proposed `MIT OR Apache-2.0` on the argument
+that the macro conveys none of its own source into a consumer, and that a
+permissive marker crate costs adopters no `deny.toml` edit. That trade was
+declined: the project licenses uniformly, and the marker is not carved out.
 
-The macro emits none of its own code into a consumer. A well-formed marker
-expands to the annotated item verbatim; a malformed one adds a
-`compile_error!`. Nothing of this crate's source is conveyed into anything that
-uses it, so there is no derived work for copyleft to protect — the value worth
-protecting lives in the engine that reads these markers, which stays AGPL.
+Adopting repositories therefore need a crate-scoped exception, the same shape
+this repo's own `deny.toml` uses, which admits AGPL for this crate alone while
+the third-party allow-list stays permissive-only:
 
-And the marker is only worth having if it is everywhere. The sibling projects'
-`deny.toml` files allow AGPL for their own crate alone and keep the third-party
-allow-list permissive-only, which is a deliberate policy. An AGPL marker crate
-would have forced every adopting repository to either add an exception or
-weaken that policy — turning a one-line dev-dependency into a licensing
-decision, roughly 150 times.
+```toml
+[licenses]
+exceptions = [
+    { allow = ["AGPL-3.0-or-later"], crate = "ix-trace-rs" },
+]
+```
