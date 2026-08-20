@@ -6,7 +6,7 @@
 //! property downstream repos rely on: an annotated item behaves exactly as if
 //! the attribute were not there.
 
-use ix_trace_rs::trace;
+use ix_trace_rs::{implements, trace};
 
 #[trace("FR-051-AC-4")]
 fn single_marker() -> u8 {
@@ -59,12 +59,12 @@ fn attribute_composes_with_the_test_attribute() {
 // back a criterion, `implements` is scope and never may, and the module binds
 // them to complementary symbol kinds — a shared attribute with a discriminator
 // argument would put one typo between the two.
-#[ix_trace_rs::implements("FR-051-AC-4")]
+#[implements("FR-051-AC-4")]
 fn implemented_marker() -> u8 {
     13
 }
 
-#[ix_trace_rs::implements("FR-051-AC-4", "FR-051-AC-6")]
+#[implements("FR-051-AC-4", "FR-051-AC-6")]
 struct Scoped {
     value: u8,
 }
@@ -79,7 +79,7 @@ fn implements_is_transparent_on_functions_and_items() {
 // Both attributes on one item: neither disturbs the other, and the item is
 // still the item.
 #[trace("TC-744")]
-#[ix_trace_rs::implements("FR-051-AC-4")]
+#[implements("FR-051-AC-4")]
 fn both_attributes() -> u8 {
     17
 }

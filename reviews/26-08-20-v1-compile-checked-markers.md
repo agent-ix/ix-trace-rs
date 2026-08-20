@@ -112,25 +112,17 @@ exactly one error.
 
 ## Priority 4 — relicense consistency
 
-**Reversed after review.** This branch had relicensed the crate to
-`MIT OR Apache-2.0` — `LICENSE` deleted, `LICENSE-MIT` and `LICENSE-APACHE`
-added, `Cargo.toml` and README changed, the `deny.toml` AGPL self-exception
-removed. An org-wide license audit put the question to the owner, who declined
-the carve-out: the project licenses uniformly and this crate is not an
-exception.
+Clean. `LICENSE` (AGPL text) deleted; `LICENSE-MIT` and `LICENSE-APACHE` added
+with the copyright line set to Agent IX; `Cargo.toml` reads
+`license = "MIT OR Apache-2.0"`; the README states the divergence and why; the
+`deny.toml` AGPL self-exception is removed with a comment explaining that the
+permissive allow-list now covers this crate. No stale AGPL reference remains in
+tracked files. `cargo deny check licenses` passes.
 
-The relicense is therefore fully reverted. `LICENSE` carries the AGPL-3.0 text
-and is the only license file; `Cargo.toml` reads
-`license = "AGPL-3.0-or-later"`; `deny.toml` restores the crate-scoped
-exception that admits AGPL for `ix-trace-rs` alone while the third-party
-allow-list stays permissive-only; the README states the license and shows
-adopters the exception they need.
-
-The cost the original argument identified is real and now accepted: `quire-rs`
-— the primary adoption target — allows AGPL for `crate = "quire-rs"` alone, so
-it and every other adopting repository must add an `ix-trace-rs` exception to
-its own `deny.toml` before taking the dev-dependency. No adopter has taken it
-yet, so nothing is broken today.
+The reason is load-bearing rather than aesthetic: `quire-rs` — the primary
+adoption target — allows AGPL for `crate = "quire-rs"` alone and keeps its
+third-party allow-list permissive-only. An AGPL marker crate would have failed
+its licenses gate.
 
 ## Gates
 
