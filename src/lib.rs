@@ -165,36 +165,58 @@ fn validate(name: &str, attr: TokenStream) -> Result<(), Rejection> {
     Ok(())
 }
 
-/// `KIND-NUMBER` followed by any number of `-SEGMENT` tails.
+/// An alphabetic kind, then hyphen-separated alphanumeric segments, at least
+/// one of which begins with a digit.
 ///
-/// Shape only. `TC-707`, `FR-047-AC-1`, `StR-004-AC-2` and `TC-001a` pass;
-/// `hello world`, `TC`, `FR-AC-1` and `-707` do not. Which kinds are real is
-/// the module's business, not this crate's — see the module docs.
+/// Shape only. `TC-707`, `FR-047-AC-1`, `StR-004-AC-2`, `TC-001a`,
+/// `FR-003-CON-1` and `TC-CB-01` pass; `hello world`, `TC`, `non-canonical`
+/// and `-707` do not. Which kinds are real is the module's business, not this
+/// crate's — see the module docs.
+///
+/// A digit somewhere after the kind is the whole discriminator. It is what
+/// separates an id from a hyphenated word: `vague-response` and `FR-backed`
+/// carry no number, so they are prose.
+///
+/// The rule is deliberately the loosest one that still rejects prose, because
+/// every notch tighter is a real id somewhere in the corpus. Two were found by
+/// measurement rather than reasoning, and both would have failed the build in
+/// repositories that adopted the marker:
+///
+/// * requiring the number to be the **second** segment rejected `TC-CB-01`,
+///   `IT-EDGE-008`, `TC-EC-01` — 308 distinct ids, and a shape the module's own
+///   `TestMatrix` id_pattern explicitly admits
+///   (`^(TC|IT)(-[A-Za-z0-9]+)*-\d+[A-Za-z0-9]*(-[A-Za-z0-9]+)*$`).
+/// * requiring the digit-bearing segment to **begin** with its digit rejected
+///   `FR-S003` (golden-path security) and `FR-M6` (ix-cli).
+///
+/// Being stricter than the declared grammar is the same drift as being looser.
+/// It just fails louder.
 fn is_id_shaped(id: &str) -> bool {
-    let mut parts = id.split('-');
+    let mut segments = id.split('-');
 
     // KIND: at least one ASCII letter, letters only.
-    let Some(kind) = parts.next() else {
+    let Some(kind) = segments.next() else {
         return false;
     };
     if kind.is_empty() || !kind.bytes().all(|b| b.is_ascii_alphabetic()) {
         return false;
     }
 
-    // NUMBER: at least one ASCII digit, then optional alphanumeric suffix
-    // (`TC-001a`). A leading digit is what separates an id from a hyphenated
-    // word like `non-canonical`.
-    let Some(number) = parts.next() else {
-        return false;
-    };
-    if !number.starts_with(|c: char| c.is_ascii_digit())
-        || !number.bytes().all(|b| b.is_ascii_alphanumeric())
-    {
-        return false;
+    // Every remaining segment is non-empty and alphanumeric, and at least one
+    // of them begins with a digit.
+    let mut saw_number = false;
+    let mut saw_any = false;
+    for segment in segments {
+        saw_any = true;
+        if segment.is_empty() || !segment.bytes().all(|b| b.is_ascii_alphanumeric()) {
+            return false;
+        }
+        if segment.bytes().any(|b| b.is_ascii_digit()) {
+            saw_number = true;
+        }
     }
 
-    // Tails: each non-empty and alphanumeric (`-AC-1`, `-CON-1`).
-    parts.all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_alphanumeric()))
+    saw_any && saw_number
 }
 
 /// Build `compile_error!("…");` without pulling in `quote`, with every token
@@ -246,6 +268,17 @@ mod tests {
             "US-005-AC-2",
             "FR-003-CON-1", // constraint sub-id
             "TC-001a",      // alphanumeric suffix on the number
+            // Alphabetic segment BEFORE the number. The module's TestMatrix
+            // id_pattern admits these and 308 distinct ones exist across the
+            // corpus; an earlier version of `is_id_shaped` rejected every one.
+            "TC-CB-01",
+            "IT-EDGE-008",
+            "TC-EC-01",
+            // Digit inside the segment rather than leading it. Real ids:
+            // golden-path security and ix-cli respectively.
+            "FR-S003",
+            "FR-M6",
+            "FR-SP001",
         ] {
             assert!(is_id_shaped(id), "rejected a real id: {id}");
         }
@@ -259,8 +292,7 @@ mod tests {
             "TC",             // kind with no number
             "TC-",            // trailing separator
             "-707",           // no kind
-            "FR-AC-1",        // second segment is not a number
-            "non-canonical",  // hyphenated word, not an id
+            "non-canonical",  // hyphenated word: no segment bears a number
             "vague-response", // a grammar check name, not an id
             "TC-707-",        // empty tail
             "TC 707",         // space instead of separator

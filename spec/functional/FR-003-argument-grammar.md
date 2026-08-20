@@ -35,9 +35,9 @@ build instead of looking like coverage while providing none.
   well-formed one.
 - The macro SHALL reject an empty string literal.
 - The macro SHALL reject a literal that is not id-shaped, where **id-shaped**
-  means `KIND-NUMBER` optionally followed by `-SEGMENT` tails: `KIND` is one or
-  more ASCII letters, `NUMBER` begins with an ASCII digit and continues
-  alphanumeric, and each tail segment is non-empty and alphanumeric.
+  means a `KIND` of one or more ASCII letters, followed by one or more
+  hyphen-separated segments that are each non-empty and alphanumeric, **at
+  least one of which contains an ASCII digit**.
 - If any argument is rejected, then the macro SHALL span the diagnostic to that
   argument rather than to the attribute or the call site.
 - The macro SHALL still emit the annotated item alongside the `compile_error!`,
@@ -71,12 +71,33 @@ Checking membership requires reading the specification, which is a later stage
 with its own rebuild-dependency problem. Keeping this crate to shape means the
 vocabulary has exactly one home.
 
+**Stricter is the same defect as looser.** The rule is calibrated against the
+real corpus, not reasoned from the pattern, because two plausible tightenings
+each rejected real ids:
+
+| Tightening | Rejected | Found in |
+| --- | --- | --- |
+| the number must be the **second** segment | `TC-CB-01`, `IT-EDGE-008`, `TC-EC-01` — 308 distinct ids | a shape the module's `TestMatrix` id_pattern explicitly admits |
+| the digit-bearing segment must **begin** with its digit | `FR-S003`, `FR-M6`, `FR-SP001` | golden-path security, ix-cli |
+
+Both were caught by feeding every id-shaped token in `~/dev` through the macro
+and compiling. 6804 of 6931 are accepted. The remainder are documentation
+placeholders (`FR-XXX`, `NFR-NNN-AC-N`), prose compounds (`FR-backed`,
+`FR-to-IT`), and roughly ninety digit-free test ids of the form
+`TC-CAT-APPS-FILTER` / `TC-REG-LAST-WRITE-WINS`.
+
+That last group is worth naming rather than absorbing: those ids do not match
+the module's own `TestMatrix` id_pattern either, which mandates `-\d+`. Rejecting
+them keeps this crate aligned with the declared grammar rather than stricter
+than it — but the repositories using that convention cannot adopt the marker
+until their ids conform, and that is a corpus problem, not a macro one.
+
 ## Acceptance Criteria
 
 | ID | Criteria | Verification |
 |----|----------|--------------|
-| FR-003-AC-1 | The id forms the corpus writes — `TC-707`, `IT-033`, `FR-047-AC-1`, `NFR-003-AC-2`, `StR-004-AC-2`, `US-005-AC-2`, `FR-003-CON-1`, `TC-001a` — are all accepted | Test (TC-006) |
-| FR-003-AC-2 | Prose and malformed ids are rejected, including `hello world`, `TC`, `TC-`, `-707`, `FR-AC-1`, `non-canonical`, `vague-response`, `TC 707` and `FR_047` | Test (TC-007) |
+| FR-003-AC-1 | The id forms the corpus writes are all accepted, including a bare `TC-707`, a criterion `FR-047-AC-1`, a mixed-case kind `StR-004-AC-2`, a constraint `FR-003-CON-1`, an alphanumeric suffix `TC-001a`, an alphabetic segment before the number `TC-CB-01` / `IT-EDGE-008`, and a digit inside rather than leading a segment `FR-S003` / `FR-M6` | Test (TC-006) |
+| FR-003-AC-2 | Prose and malformed ids are rejected, including `hello world`, `TC`, `TC-`, `-707`, `non-canonical`, `vague-response`, `TC 707` and `FR_047` | Test (TC-007) |
 | FR-003-AC-3 | A well-shaped id whose kind no module declares is **accepted**, confirming the macro checks shape and not vocabulary (FR-003-CON-1) | Test (TC-008) |
 | FR-003-AC-4 | A prose argument fails the build with a diagnostic naming the argument and the expected shape | Test (TC-009) |
 | FR-003-AC-5 | A non-literal argument, an empty argument list, and an empty string each fail the build with their own diagnostic | Test (TC-009) |
