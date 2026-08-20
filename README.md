@@ -58,6 +58,26 @@ ix-trace-rs = "0.1"
 Markers carry no runtime cost: they are gone by the time the compiler finishes
 expanding them.
 
+## Import it; do not path-qualify it
+
+```rust
+use ix_trace_rs::trace;
+
+#[trace("TC-707", "FR-047-AC-1")]
+#[test]
+fn tc707_shape_classification() { /* … */ }
+```
+
+`#[ix_trace_rs::trace("TC-707")]` compiles and behaves identically — and binds
+**nothing**. The module's canonical marker pattern is anchored on the literal
+attribute name (`#\[trace\(…\)\]`), so a leading path does not match. Nothing
+warns: the test passes, the id is visibly there in the source, and the row it
+should back silently reads as unbacked.
+
+This crate hit it in its own test suite. `TC-009` was a status lie until the
+qualified form was replaced — coverage went 19/29 with one lie to 26/29 with
+none, from that change alone.
+
 ## License
 
 MIT OR Apache-2.0, at your option.
