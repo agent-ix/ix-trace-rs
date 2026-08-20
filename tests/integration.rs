@@ -31,6 +31,7 @@ struct Annotated {
     value: u8,
 }
 
+#[trace("TC-001", "FR-001-AC-1", "FR-001-AC-2", "FR-001-AC-5")]
 #[test]
 fn attribute_is_transparent_on_functions() {
     assert_eq!(single_marker(), 7);
@@ -38,16 +39,53 @@ fn attribute_is_transparent_on_functions() {
     assert_eq!(normalized_argument_list(), 11);
 }
 
+#[trace("TC-002", "FR-001-AC-3")]
 #[test]
 fn attribute_is_transparent_on_items() {
     let annotated = Annotated { value: 3 };
     assert_eq!(annotated.value, 3);
 }
 
-#[trace("TC-744")]
+#[trace("TC-003", "FR-001-AC-4")]
 #[test]
 fn attribute_composes_with_the_test_attribute() {
     // The ordering downstream suites actually use: the marker sits above
     // `#[test]` and must not disturb harness registration.
     assert_eq!(single_marker(), 7);
+}
+
+// `implements` is a separate attribute, not a flag on `trace`, and must be
+// equally transparent. Kept apart deliberately: `verifies` is evidence and may
+// back a criterion, `implements` is scope and never may, and the module binds
+// them to complementary symbol kinds — a shared attribute with a discriminator
+// argument would put one typo between the two.
+#[ix_trace_rs::implements("FR-051-AC-4")]
+fn implemented_marker() -> u8 {
+    13
+}
+
+#[ix_trace_rs::implements("FR-051-AC-4", "FR-051-AC-6")]
+struct Scoped {
+    value: u8,
+}
+
+#[trace("TC-004", "FR-002-AC-1")]
+#[test]
+fn implements_is_transparent_on_functions_and_items() {
+    assert_eq!(implemented_marker(), 13);
+    assert_eq!(Scoped { value: 5 }.value, 5);
+}
+
+// Both attributes on one item: neither disturbs the other, and the item is
+// still the item.
+#[trace("TC-744")]
+#[ix_trace_rs::implements("FR-051-AC-4")]
+fn both_attributes() -> u8 {
+    17
+}
+
+#[trace("TC-005", "FR-002-AC-2")]
+#[test]
+fn trace_and_implements_compose() {
+    assert_eq!(both_attributes(), 17);
 }

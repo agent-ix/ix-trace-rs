@@ -1,0 +1,5 @@
+error: `trace` arguments must not be empty strings
+ --> tests/ui/empty_string.rs:3:9
+  |
+3 | #[trace("")]
+  |         ^^
