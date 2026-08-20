@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.75"
 description = "Compile-checked #[trace(...)] and #[implements(...)] markers for statically parseable spec traceability (quire-rs FR-051). Zero runtime dependencies."
 authors = ["Agent IX <agents@agent-ix.dev>"]
-license = "MIT OR Apache-2.0"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/agent-ix/ix-trace-rs"
 
 [lib]
