@@ -35,9 +35,10 @@ build instead of looking like coverage while providing none.
   well-formed one.
 - The macro SHALL reject an empty string literal.
 - The macro SHALL reject a literal that is not id-shaped, where **id-shaped**
-  means a `KIND` of one or more ASCII letters, followed by one or more
-  hyphen-separated segments that are each non-empty and alphanumeric, **at
-  least one of which contains an ASCII digit**.
+  means a `KIND` that **begins with an ASCII letter**, followed by any mix of
+  ASCII letters, digits, and underscores, then one or more hyphen-separated
+  segments that are each non-empty and alphanumeric, **at least one of which
+  contains an ASCII digit**.
 - If any argument is rejected, then the macro SHALL span the diagnostic to that
   argument rather than to the attribute or the call site.
 - The macro SHALL still emit the annotated item alongside the `compile_error!`,
@@ -79,6 +80,7 @@ each rejected real ids:
 | --- | --- | --- |
 | the number must be the **second** segment | `TC-CB-01`, `IT-EDGE-008`, `TC-EC-01` — 308 distinct ids | a shape the module's `TestMatrix` id_pattern explicitly admits |
 | the digit-bearing segment must **begin** with its digit | `FR-S003`, `FR-M6`, `FR-SP001` | golden-path security, ix-cli |
+| the `KIND` segment must be letters-only | `interface_004-AC-1`, `interface_004-AC-2` | object ids use underscores rather than hyphens, so the object's numeral sits inside the kind segment itself (agent-ix/ix-trace-rs#7) |
 
 Both were caught by feeding every id-shaped token in `~/dev` through the macro
 and compiling. 6804 of 6931 are accepted. The remainder are documentation
@@ -96,8 +98,8 @@ until their ids conform, and that is a corpus problem, not a macro one.
 
 | ID | Criteria | Verification |
 |----|----------|--------------|
-| FR-003-AC-1 | The id forms the corpus writes are all accepted, including a bare `TC-707`, a criterion `FR-047-AC-1`, a mixed-case kind `StR-004-AC-2`, a constraint `FR-003-CON-1`, an alphanumeric suffix `TC-001a`, an alphabetic segment before the number `TC-CB-01` / `IT-EDGE-008`, and a digit inside rather than leading a segment `FR-S003` / `FR-M6` | Test (TC-006) |
-| FR-003-AC-2 | Prose and malformed ids are rejected, including `hello world`, `TC`, `TC-`, `-707`, `non-canonical`, `vague-response`, `TC 707` and `FR_047` | Test (TC-007) |
+| FR-003-AC-1 | The id forms the corpus writes are all accepted, including a bare `TC-707`, a criterion `FR-047-AC-1`, a mixed-case kind `StR-004-AC-2`, a constraint `FR-003-CON-1`, an alphanumeric suffix `TC-001a`, an alphabetic segment before the number `TC-CB-01` / `IT-EDGE-008`, a digit inside rather than leading a segment `FR-S003` / `FR-M6`, and an underscored, digit-bearing `KIND` segment `interface_004-AC-1` | Test (TC-006) |
+| FR-003-AC-2 | Prose and malformed ids are rejected, including `hello world`, `TC`, `TC-`, `-707`, `non-canonical`, `vague-response`, `TC 707`, `FR_047`, and a `KIND` segment that does not begin with an ASCII letter (`004-AC-1`, `_004-AC-1`, `_interface_004-AC-1`, `4interface-AC-1`, `1_x-AC-1`) | Test (TC-007) |
 | FR-003-AC-3 | A well-shaped id whose kind no module declares is **accepted**, confirming the macro checks shape and not vocabulary (FR-003-CON-1) | Test (TC-008) |
 | FR-003-AC-4 | A prose argument fails the build with a diagnostic naming the argument and the expected shape | Test (TC-009) |
 | FR-003-AC-5 | A non-literal argument, an empty argument list, and an empty string each fail the build with their own diagnostic | Test (TC-009) |
