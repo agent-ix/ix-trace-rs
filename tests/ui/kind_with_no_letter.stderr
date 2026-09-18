@@ -3,3 +3,21 @@ error: `004-AC-1` is not a spec id: expected `KIND-NUMBER`, optionally followed 
   |
 7 | #[trace("004-AC-1")]
   |         ^^^^^^^^^^
+
+error: `_interface_004-AC-1` is not a spec id: expected `KIND-NUMBER`, optionally followed by `-SUBKIND-NUMBER` (for example `TC-707` or `FR-047-AC-1`). `trace` does not check which kinds exist — only that the argument is an id and not prose.
+  --> tests/ui/kind_with_no_letter.rs:13:9
+   |
+13 | #[trace("_interface_004-AC-1")]
+   |         ^^^^^^^^^^^^^^^^^^^^^
+
+error: `4interface-AC-1` is not a spec id: expected `KIND-NUMBER`, optionally followed by `-SUBKIND-NUMBER` (for example `TC-707` or `FR-047-AC-1`). `trace` does not check which kinds exist — only that the argument is an id and not prose.
+  --> tests/ui/kind_with_no_letter.rs:16:9
+   |
+16 | #[trace("4interface-AC-1")]
+   |         ^^^^^^^^^^^^^^^^^
+
+error: `1_x-AC-1` is not a spec id: expected `KIND-NUMBER`, optionally followed by `-SUBKIND-NUMBER` (for example `TC-707` or `FR-047-AC-1`). `trace` does not check which kinds exist — only that the argument is an id and not prose.
+  --> tests/ui/kind_with_no_letter.rs:19:9
+   |
+19 | #[trace("1_x-AC-1")]
+   |         ^^^^^^^^^^

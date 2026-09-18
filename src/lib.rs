@@ -183,18 +183,21 @@ fn validate(name: &str, attr: TokenStream) -> Result<(), Rejection> {
     Ok(())
 }
 
-/// A kind of letters, digits, and underscores (at least one letter), then
-/// hyphen-separated alphanumeric segments, at least one of which begins with
-/// a digit.
+/// A kind that begins with an ASCII letter, then any mix of letters, digits,
+/// and underscores, then hyphen-separated alphanumeric segments, at least one
+/// of which contains a digit.
 ///
 /// Shape only. `TC-707`, `FR-047-AC-1`, `StR-004-AC-2`, `TC-001a`,
 /// `FR-003-CON-1`, `TC-CB-01` and `interface_004-AC-1` pass; `hello world`,
-/// `TC`, `non-canonical`, `-707` and `004-AC-1` do not. Which kinds are real
-/// is the module's business, not this crate's — see the module docs.
+/// `TC`, `non-canonical`, `-707`, `004-AC-1` and `4interface-AC-1` do not.
+/// Which kinds are real is the module's business, not this crate's — see the
+/// module docs.
 ///
-/// A digit somewhere after the kind is the whole discriminator. It is what
-/// separates an id from a hyphenated word: `vague-response` and `FR-backed`
-/// carry no number, so they are prose.
+/// A digit somewhere in a tail segment — not necessarily its first
+/// character — is the whole discriminator there. It is what separates an id
+/// from a hyphenated word: `vague-response` and `FR-backed` carry no number,
+/// so they are prose. `FR-S003` is accepted on exactly this basis: the digit
+/// is inside the tail segment, not leading it.
 ///
 /// The rule is deliberately the loosest one that still rejects prose, because
 /// every notch tighter is a real id somewhere in the corpus. Three were found
@@ -217,21 +220,23 @@ fn validate(name: &str, attr: TokenStream) -> Result<(), Rejection> {
 fn is_id_shaped(id: &str) -> bool {
     let mut segments = id.split('-');
 
-    // KIND: at least one ASCII letter; letters, digits, and underscores
-    // otherwise, so an object id like `interface_004` is itself a valid kind
-    // segment.
+    // KIND: begins with an ASCII letter, then any mix of ASCII letters,
+    // digits, and underscores — matching quire-rs's own `is_object_id`
+    // (src/semantic/target.rs) exactly, so an object id like `interface_004`
+    // is itself a valid kind segment, but `_interface_004` and `4interface`
+    // are not: a leading underscore or digit is not a letter.
     let Some(kind) = segments.next() else {
         return false;
     };
-    if kind.is_empty()
+    if !kind.starts_with(|c: char| c.is_ascii_alphabetic())
         || !kind.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
-        || !kind.bytes().any(|b| b.is_ascii_alphabetic())
     {
         return false;
     }
 
     // Every remaining segment is non-empty and alphanumeric, and at least one
-    // of them begins with a digit.
+    // of them contains a digit (not necessarily leading — see `FR-S003` in
+    // the doc comment above).
     let mut saw_number = false;
     let mut saw_any = false;
     for segment in segments {
@@ -312,9 +317,9 @@ mod tests {
         }
     }
 
-    // agent-ix/ix-trace-rs#7: this program's object ids use underscores, not
-    // hyphens (`interface_004`), so the KIND segment itself may carry
-    // underscores and digits.
+    // TC-006, FR-003-AC-1: agent-ix/ix-trace-rs#7: this program's object ids
+    // use underscores, not hyphens (`interface_004`), so the KIND segment
+    // itself may carry underscores and digits after its first character.
     #[test]
     fn accepts_kind_segments_with_underscores_and_digits() {
         for id in [
@@ -344,6 +349,12 @@ mod tests {
             "004-AC-1",       // kind is all digits: no letter anywhere in it
             "_004-AC-1",      // kind is all underscore+digits: still no letter
             "__-AC-1",        // kind is underscores only
+            // agent-ix/ix-trace-rs#7 review: the KIND segment must BEGIN with
+            // an ASCII letter (matching quire-rs's `is_object_id` exactly),
+            // not merely contain one anywhere.
+            "_interface_004-AC-1", // starts with `_`, not a letter
+            "4interface-AC-1",     // starts with a digit, not a letter
+            "1_x-AC-1",            // starts with a digit, not a letter
         ] {
             assert!(!is_id_shaped(id), "accepted prose as an id: {id}");
         }
