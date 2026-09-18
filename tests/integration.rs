@@ -89,3 +89,20 @@ fn both_attributes() -> u8 {
 fn trace_and_implements_compose() {
     assert_eq!(both_attributes(), 17);
 }
+
+// agent-ix/ix-trace-rs#7: this program's object ids use underscores, not
+// hyphens (`interface_004`), so the KIND segment itself carries digits and
+// underscores. `interface_004-AC-1` must compile as written — the only
+// spelling that used to compile, `interface-004-AC-1`, names an id the spec
+// does not define. This is a compile-pass regression test: if `is_id_shaped`
+// ever goes back to letters-only kinds, this file fails to build.
+#[trace("interface_004-AC-1")]
+fn interface_ac_backed() -> u8 {
+    19
+}
+
+#[trace("TC-006", "FR-003-AC-1")]
+#[test]
+fn kind_segment_with_underscore_and_digit_compiles() {
+    assert_eq!(interface_ac_backed(), 19);
+}
