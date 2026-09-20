@@ -1,6 +1,9 @@
-/target
 Cargo.lock.bak
 *.swp
 .DS_Store
 .idea/
 .vscode/
+
+target/
+*-target/
+.worktrees/
