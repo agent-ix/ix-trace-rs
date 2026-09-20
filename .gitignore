@@ -6,4 +6,5 @@ Cargo.lock.bak
 
 target/
 *-target/
+target-*/
 .worktrees/
