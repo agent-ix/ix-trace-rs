@@ -1,6 +1,6 @@
 # ix-trace-rs
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/6qsdhSPE)
+[![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/k8DVhuYBR2)
 
 A no-op `#[trace(...)]` attribute, so a Rust test can name the spec ids it
 verifies in a form a tool can read **without running anything**.
