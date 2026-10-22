@@ -72,6 +72,6 @@ its inputs.
 
 | FND | outcome | sha |
 | --- | ------- | --- |
-| FND-001 | fixed | PENDING |
-| FND-002 | fixed | PENDING |
-| FND-003 | fixed | PENDING |
+| FND-001 | fixed | caf3723 |
+| FND-002 | fixed | caf3723 |
+| FND-003 | fixed | caf3723 |
