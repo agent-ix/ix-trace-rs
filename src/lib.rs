@@ -1,4 +1,5 @@
-//! Compile-checked `#[trace(...)]` and `#[implements(...)]` attributes, so a
+//! Compile-checked `#[trace(...)]` and `#[implements(...)]` attributes (plus
+//! the argument-free `#[string_edge]` marker, see [`macro@string_edge`]), so a
 //! symbol can name the spec ids it answers for in a form that is **statically
 //! parseable** and that the compiler refuses to let you misspell.
 //!
@@ -87,6 +88,28 @@ pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn implements(attr: TokenStream, item: TokenStream) -> TokenStream {
     expand("implements", attr, item)
+}
+
+/// Mark a function as a string-dispatch edge: a place where a string is
+/// allowed to select semantics (QSL ADR-012 §9, FR-064).
+///
+/// Takes **no arguments**: the marker's presence is the whole signal a source
+/// scan reads, so there is nothing to configure. `#[string_edge(anything)]` is a
+/// compile error with the message `#[string_edge] takes no arguments`, emitted
+/// **alongside** the unchanged item rather than in place of it, so a stray
+/// argument reports exactly one error instead of a cascade of "cannot find
+/// function" errors at every call site.
+///
+/// Otherwise the expansion is the input item, unchanged, with no runtime
+/// behaviour.
+#[proc_macro_attribute]
+pub fn string_edge(attr: TokenStream, item: TokenStream) -> TokenStream {
+    if attr.is_empty() {
+        return item;
+    }
+    let mut out = compile_error("#[string_edge] takes no arguments", Span::call_site());
+    out.extend(item);
+    out
 }
 
 /// Validate `attr` and return `item` untouched, prepending a spanned

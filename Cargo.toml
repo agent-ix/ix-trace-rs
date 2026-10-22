@@ -1,9 +1,9 @@
 [package]
 name = "ix-trace-rs"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.75"
-description = "Compile-checked #[trace(...)] and #[implements(...)] markers for statically parseable spec traceability (quire-rs FR-051). Zero runtime dependencies."
+description = "Compile-checked #[trace(...)] and #[implements(...)] markers and the argument-free #[string_edge] marker for statically parseable spec traceability (quire-rs FR-051). Zero runtime dependencies."
 authors = ["Agent IX <agents@agent-ix.dev>"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/agent-ix/ix-trace-rs"
