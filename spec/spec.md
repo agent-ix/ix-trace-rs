@@ -22,7 +22,8 @@ security_critical: false
 ## Purpose
 
 This document specifies `ix-trace-rs`, a proc-macro crate providing the
-`#[trace(...)]` and `#[implements(...)]` attributes. The attributes let a Rust
+`#[trace(...)]` and `#[implements(...)]` attributes and the argument-free
+`#[string_edge]` marker. The attributes let a Rust
 symbol name the specification ids it answers for, in a form the compiler
 rejects when malformed and a coverage tool can read without running anything.
 
@@ -51,7 +52,8 @@ verifies nothing.
 
 - The `#[trace(...)]` and `#[implements(...)]` attribute macros, their argument
   grammar, and their compile-time diagnostics.
-- The guarantee that both expand to the annotated item unchanged.
+- The `#[string_edge]` marker attribute ([FR-004](./functional/FR-004-string-edge-attribute.md)).
+- The guarantee that all expand to the annotated item unchanged.
 - The crate's dependency posture, which governs what adopting it costs a
   consumer.
 
@@ -89,18 +91,19 @@ transitive, nothing the crate uses for its own tests reaches a downstream build.
 
 ### Interfaces
 
-The public surface is two attribute macros and nothing else: `trace` and
-`implements`. Both take a comma-separated list of string literals and expand to
-their input.
+The public surface is three attribute macros and nothing else: `trace`,
+`implements` and `string_edge`. The first two take a comma-separated list of
+string literals; `string_edge` takes none. All expand to their input.
 
 ## Requirements Architecture
 
 ### Requirement Groups
 
-- **Functional** — the two attributes ([FR-001](./functional/FR-001-trace-attribute.md),
+- **Functional** — the trace attributes ([FR-001](./functional/FR-001-trace-attribute.md),
   [FR-002](./functional/FR-002-implements-attribute.md)) and the argument
   grammar and diagnostics they share
-  ([FR-003](./functional/FR-003-argument-grammar.md)).
+  ([FR-003](./functional/FR-003-argument-grammar.md)), plus the argument-free
+  `string_edge` marker ([FR-004](./functional/FR-004-string-edge-attribute.md)).
 - **Non-functional** — the dependency posture that decides adoption cost
   ([NFR-001](./non-functional/NFR-001-dependency-posture.md)).
 - **Stakeholder** — the need the crate answers

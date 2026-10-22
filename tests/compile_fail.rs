@@ -10,7 +10,14 @@
 
 use ix_trace_rs::trace;
 
-#[trace("TC-009", "FR-003-AC-4", "FR-003-AC-5", "FR-003-AC-6", "FR-002-AC-3")]
+#[trace(
+    "TC-009",
+    "FR-003-AC-4",
+    "FR-003-AC-5",
+    "FR-003-AC-6",
+    "FR-002-AC-3",
+    "FR-004-AC-2"
+)]
 #[test]
 fn malformed_markers_are_rejected_at_compile_time() {
     trybuild::TestCases::new().compile_fail("tests/ui/*.rs");
