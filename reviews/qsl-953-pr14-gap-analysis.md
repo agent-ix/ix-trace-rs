@@ -53,7 +53,7 @@ Both are spec/matrix bookkeeping. No code is defective.
 
 ## Dispositions
 
-| FND | outcome | sha |
-| --- | ------- | --- |
+| FND | outcome | sha/reason |
+| --- | ------- | ---------- |
 | FND-001 | fixed | caf3723 |
 | FND-002 | fixed | caf3723 |
