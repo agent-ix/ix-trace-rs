@@ -43,7 +43,7 @@ has no runtime behaviour.
 
 | ID | Constraint | Type | Validation |
 |----|------------|------|------------|
-| FR-004-CON-1 | The expansion SHALL add no runtime code, no static, and no registration side effect, and the attribute SHALL add no dependency | Design | Test |
+| FR-004-CON-1 | The expansion SHALL add no runtime code, no static, and no registration side effect, and the attribute SHALL add no dependency | Design | Test (TC-014) |
 
 ## Acceptance Criteria
 

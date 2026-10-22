@@ -67,3 +67,11 @@ its inputs.
 | FND-001 | low | The `Cargo.toml` `description` and the `CLAUDE.md` headline still describe the crate as only the `#[trace(...)]` and `#[implements(...)]` markers. `string_edge` is now public surface, and crates.io/docs metadata does not mention it | Cargo.toml:5 |
 | FND-002 | low | The crate version is stale: `Cargo.toml` says `0.1.0` while tag `v0.1.1` exists (v0.1.1 was cut from a commit that still read `0.1.0`). The release after this merge is `v0.1.2`. The repo has no CHANGELOG, no release make target and no prior bump commit, so it has no release-commit convention. Bump `version = "0.1.2"` in this PR, or in one commit right before tagging, so the tag and `Cargo.toml` agree | Cargo.toml:3 |
 | FND-003 | low | The transparency test covers a free function and an inherent method only. Real consumers also mark trait-impl methods (`FromStr::from_str`, `TryFrom::try_from`, `Visit::visit_*`), generic and lifetime-bearing functions, and `fn main`. These work, because the macro is an identity transform, but no test pins them | tests/string_edge.rs:7 |
+
+## Dispositions
+
+| FND | outcome | sha |
+| --- | ------- | --- |
+| FND-001 | fixed | PENDING |
+| FND-002 | fixed | PENDING |
+| FND-003 | fixed | PENDING |

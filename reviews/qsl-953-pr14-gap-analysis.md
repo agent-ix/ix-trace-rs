@@ -50,3 +50,10 @@ Both are spec/matrix bookkeeping. No code is defective.
 | ------- | -------- | ------- | ---- |
 | FND-001 | medium | FR-004-CON-1 ("no runtime code, no static, no registration side effect, and no dependency"; Validation: Test) has no tagged test. `quoin matrix` reports it as `untagged`. That breaks Matrix Rule 1, which needs a trace or an explicit row saying why none exists. FR-003-CON-1 sets the pattern: TC-008 carries it. The dependency half is already asserted by `tests/dependency_posture.rs` (TC-014), and the transparency half by TC-015. Tag one of those tests with FR-004-CON-1, or add a row explaining the gap | spec/functional/FR-004-string-edge-attribute.md:46 |
 | FND-002 | low | The TC-009 row in `spec/tests.md` adds the `string_edge_with_args` description but its Traces column still lists only FR-003/FR-002 ids. The test's `#[trace]` now carries FR-004-AC-2, so the hand-written row and the computed binding disagree | spec/tests.md:63 |
+
+## Dispositions
+
+| FND | outcome | sha |
+| --- | ------- | --- |
+| FND-001 | fixed | PENDING |
+| FND-002 | fixed | PENDING |

@@ -1,6 +1,6 @@
 # ix-trace-rs
 
-Compile-checked `#[trace(...)]` and `#[implements(...)]` markers for statically parseable spec traceability (quire-rs FR-051). Zero runtime dependencies.
+Compile-checked `#[trace(...)]` and `#[implements(...)]` markers and the argument-free `#[string_edge]` marker for statically parseable spec traceability (quire-rs FR-051). Zero runtime dependencies.
 
 ## Commands
 

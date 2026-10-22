@@ -18,12 +18,46 @@ impl Dispatcher {
     }
 }
 
+struct Edge;
+
+impl std::str::FromStr for Edge {
+    type Err = ();
+
+    #[string_edge]
+    fn from_str(s: &str) -> Result<Self, ()> {
+        if s == "edge" {
+            Ok(Edge)
+        } else {
+            Err(())
+        }
+    }
+}
+
+#[string_edge]
+fn generic_edge<'a, T: AsRef<str> + ?Sized>(kind: &'a T, fallback: &'a str) -> &'a str {
+    if kind.as_ref().is_empty() {
+        fallback
+    } else {
+        kind.as_ref()
+    }
+}
+
 #[trace("TC-015", "FR-004-AC-1")]
 #[test]
 fn string_edge_is_transparent_on_free_functions_and_methods() {
     assert!(free_edge("a"));
     assert!(!free_edge("b"));
     assert_eq!(Dispatcher.method_edge("abc"), 3);
+    assert!("edge".parse::<Edge>().is_ok());
+    assert!("other".parse::<Edge>().is_err());
+    assert_eq!(generic_edge("x", "z"), "x");
+    assert_eq!(generic_edge("", "z"), "z");
+
+    #[string_edge]
+    fn main() -> u8 {
+        8
+    }
+    assert_eq!(main(), 8);
 }
 
 #[trace("TC-016", "FR-004-AC-3")]
