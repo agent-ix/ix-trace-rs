@@ -61,3 +61,16 @@ Units examined:
 | ------- | -------- | ------- | ---- |
 | FND-001 | medium | FR-005-AC-12 says "on each supported target the section name is that of its object format". TC-019 asserts the name only under `cfg!(target_os = "linux")`. The new known-limits sentence and test comment say that on macOS (`__DATA,__ixtrace`) and Windows (`.ixtrace`) "the runner finds the records by those section names". That is not shown: `read_records` matches all three names on every OS, so a Mach-O binary with an ELF-named section would also pass. The macOS and Windows legs exist now, so assert `__ixtrace` under `target_os = "macos"` and `.ixtrace` under `windows` in the same block. That makes AC-12's second clause verified on all three legs, as the ✅ on TC-019 implies. Otherwise reword the sentence to say these names are not asserted | ix-trace-run/tests/emit_records.rs:156-162; spec/tests.md:91-94; ix-trace-run/src/registry.rs:91 |
 | FND-002 | low | The CI `test` job installs no `wasm32-unknown-unknown` target. `an_unsupported_target_compiles_and_carries_no_record` then prints SKIPPED (hidden without `--nocapture`), returns early and reports `ok` on all three legs. The FR-005-AC-12 wasm clause is never run in CI, and the skip shows as a pass. The spec does disclose that it runs only where the target is installed. Add `targets: wasm32-unknown-unknown` to the test job's toolchain step, at least on the ubuntu leg, so it is checked in CI | .github/workflows/ci.yml:43-44; ix-trace-run/tests/emit_records.rs:183-197 |
+
+## Dispositions
+
+Round 1 was checked against head 4cf6f94 and CI run 42648114494 (green on all five jobs).
+
+The CI log cannot show directly that the wasm test ran, because libtest captures the test's `SKIPPED` eprintln for a passing test. The run still proves the precondition. Each Test leg's toolchain step lists `targets: wasm32-unknown-unknown` and downloads 4 components, against 3 for License Check under the same minimal profile. The extra component is wasm32 `rust-std`. `rust-toolchain.toml` overrides to the same 1.98.1 toolchain it was installed into. So the test's `target-libdir` check finds the target, and the test builds the wasm fixture on each leg.
+
+The new unit test is tagged FR-006-AC-1. That follows the existing record-parsing test in registry.rs, which carries the same tag.
+
+| FND | outcome | reason |
+| --- | ------- | ------ |
+| FND-001 | fixed | 4cf6f94: TC-019 now asserts `ixtrace`, `__ixtrace` or `.ixtrace` by `target_os`, unconditionally, and passed on Linux, macOS and Windows in run 42648114494. The known-limits sentence now says it asserts each object format's name |
+| FND-002 | fixed | 4cf6f94: the CI test job's toolchain step has `targets: wasm32-unknown-unknown`. All three legs downloaded the extra rust-std component, and `an_unsupported_target_compiles_and_carries_no_record` passed on each |
