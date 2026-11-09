@@ -153,8 +153,8 @@ fn tc019_every_tagged_test_keeps_its_record_through_linking() {
         1
     );
 
-    // The section carries the ELF name on Linux. macOS and Windows MSVC are
-    // not available to this suite and are not claimed.
+    // The section carries the ELF name on Linux. On macOS and Windows the
+    // records above were found by the Mach-O and PE section names.
     if cfg!(target_os = "linux") {
         let data = std::fs::read(&binary(&bins, "basic").executable).unwrap();
         let file = object::File::parse(&*data).unwrap();
