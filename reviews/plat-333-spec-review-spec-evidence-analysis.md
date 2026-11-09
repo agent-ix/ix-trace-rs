@@ -62,9 +62,16 @@ undefined, and `tokio::test`, which the mechanism decision relies on, has no cri
 | ------- | -------- | ------- | ---- |
 | FND-003 | low | The 105% baseline is stock `cargo test`, which also runs doctests the runner does not; the two modes do not run the same tests. With one process per binary as stock, 105% is realistic (the extra cost is reading sections and writing JUnit). But `cargo test` runs doctests, which the runner does not execute, so the ratio can pass by dropping work. Compare against `cargo test --tests` (or the exact targets the runner runs). | spec/functional/FR-006-emission-run.md:92 |
 
+## New findings (disposition pass 2)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-004 | low | The rstest-above-trace warning heuristic (identifiers beginning case_) misses #[values] matrices and is untested for them. rstest names `#[case]` functions `case_N[_desc]`, but `#[values]` matrices generate nested modules and functions named after the argument (e.g. `a_1_..`), so the misuse goes unwarned for that shape. A shape-independent signal is available: several unflagged-parametrized records whose `module_path!()` ends in a segment that is itself a sibling record's identifier pattern, or simply several records sharing ids under a module path with no `parametrized` record. AC-13 covers only `case_1`/`case_2`. | spec/functional/FR-006-emission-run.md:82-84 |
+
 ## Dispositions
 
 | FND | outcome | reason |
 | --- | ------- | ------ |
 | FND-001 | fixed | round 1, e6f4900 |
 | FND-002 | fixed | round 1, e6f4900 |
+| FND-003 | fixed | round 2, 6a7857b |

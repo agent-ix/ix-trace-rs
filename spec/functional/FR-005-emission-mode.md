@@ -64,18 +64,25 @@ opt-in output, where libtest's own text results are stable.
   (a C identifier, so the linker also defines start and stop symbols), Mach-O
   `__DATA,__ixtrace` (the section name is at most 16 characters), and PE/COFF
   `.ixtrace` (at most 8 characters, the most a PE image keeps).
-- **Supported targets.** Records are supported on Linux (ELF), macOS (Mach-O) and
-  Windows MSVC (PE/COFF) test binaries. `wasm` targets are unsupported: they have
-  no such sections and `emit` there is rejected with a `compile_error!`. A target
-  or toolchain is supported only after FR-005-AC-10 passes on it; retention of a
-  `#[used]` static against section garbage collection depends on the linker and
-  toolchain (it is verified on rustc 1.98.1 for x86_64 Linux and is unverified for
-  the crate's MSRV 1.75 or for older GNU ld), so no other combination is claimed.
+- **Supported targets.** The expansion SHALL emit the record only under
+  `cfg(any(target_os = "linux", target_os = "macos", all(windows, target_env = "msvc")))`:
+  Linux (ELF), macOS (Mach-O) and Windows MSVC (PE/COFF) test binaries. Every
+  other target (`wasm`, Windows GNU, the BSDs, Android, and any not listed) is
+  unsupported: there the expansion yields no record and still compiles, so
+  feature unification cannot break a build; the runner notices the absence
+  (FR-006-AC-18). A target or toolchain is supported only after FR-005-AC-10 passes
+  on it; retention of a `#[used]` static against section garbage collection
+  depends on the linker and toolchain (it is verified on rustc 1.98.1 for x86_64
+  Linux and is unverified for the crate's MSRV 1.75 or for older GNU ld), so no
+  other combination is claimed.
 - **Placement.** The record `static` SHALL be an item inside the annotated
   function's body, so it is valid wherever the function is.
-- **Which items.** `#[trace]` on any `fn` item SHALL embed a record, and on any
-  other item (a `struct`, an `enum`) SHALL expand to the item unchanged, so
-  enabling `emit` cannot break a build that compiles without it.
+- **Which items.** `#[trace]` on a `fn` item that has a body and no `self`
+  receiver SHALL embed a record. On a function with a `self` receiver, a function
+  without a body, or any other item (a `struct`, an `enum`), it SHALL expand to the
+  item unchanged with no record. A method named like a test in the same module
+  would otherwise share its libtest name, and enabling `emit` cannot break a build
+  that compiles without it.
 - **Test flag.** The record carries a `test` flag, set when the macro sees a
   test attribute after itself: `#[test]`, an attribute whose last path segment is
   `test` (such as `tokio::test`), or `rstest`. Rustc consumes a `#[test]` written
@@ -121,7 +128,7 @@ opt-in output, where libtest's own text results are stable.
 | --- | --- | --- |
 | FR-005-AC-1 | With `emit` disabled, expanding `#[trace("FR-001-AC-1")] #[test] fn t() {}` yields exactly the input tokens, and the test binary has no trace section. | Test |
 | FR-005-AC-2 | With `emit` enabled, a tagged `#[test]` carrying two ids in `mod tests` yields one record in the binary, with both ids in declared order, the identifier, `module_path!()` and `file!()`. | Test |
-| FR-005-AC-3 | With `emit` enabled, `#[trace]` on a `struct` yields the item unchanged with no record; on an `impl` method and on a function with no test attribute it yields a record with the `test` flag clear; each crate compiles. | Test |
+| FR-005-AC-3 | With `emit` enabled, `#[trace]` on a `struct` yields the item unchanged with no record; on an associated function without a receiver and on a function with no test attribute it yields a record with the `test` flag clear; each crate compiles. | Test |
 | FR-005-AC-4 | With `emit` enabled, a tagged `#[rstest]` function written below `#[trace]` yields one record with the `parametrized` flag; with `#[rstest]` written above `#[trace]` each generated case yields its own record without it. | Test |
 | FR-005-AC-5 | With `emit` enabled, a tagged `#[tokio::test]` yields one record with `#[trace]` written above it and one with `#[trace]` written below it. | Test |
 | FR-005-AC-6 | With `emit` enabled, a rejected `#[trace]` argument list produces the same `compile_error!` as without `emit` (FR-003). | Test |
@@ -130,7 +137,8 @@ opt-in output, where libtest's own text results are stable.
 | FR-005-AC-9 | With `emit` enabled for one package of a build in which a second package has `#[trace]` tests and no dependency on `ix-trace-run`, the second package compiles and its tests pass. | Test |
 | FR-005-AC-10 | The records of a default `cargo test` build with `emit` enabled survive linking: every tagged test of a fixture crate has its record in the produced test binary, and the check runs on each supported platform (Linux, macOS, Windows MSVC) before that platform is claimed. | Test |
 | FR-005-AC-11 | With `emit` enabled, a tagged `#[test]` written above `#[trace]` yields one record with the `test` flag clear, and the runner attaches its ids to the listed test of that name. | Test |
-| FR-005-AC-12 | With `emit` enabled for a `wasm` target, the build fails with a `compile_error!` naming the unsupported target; the section names of FR-005 are those of each object format. | Test |
+| FR-005-AC-12 | With `emit` enabled for an unsupported target (`wasm`), a crate with tagged tests compiles, its tests build, and the binary has no trace section; on each supported target the section name is that of its object format. | Test |
+| FR-005-AC-13 | With `emit` enabled, `#[trace]` on a method with a `self` receiver and on a bodyless trait method declaration yields the item unchanged with no record, and the crate compiles. | Test |
 
 ## Dependencies
 

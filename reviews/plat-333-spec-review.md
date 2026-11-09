@@ -87,6 +87,12 @@ fit for E-1, E-3, E-4, E-5, E-6 and E-8.
 | FND-007 | medium | Outcomes parsed from --format pretty stdout are forgeable by test output and the stated line grammar misses real forms. Reproduced: a test writing to `std::io::stdout()` directly bypasses capture, so `test sp ... FAILED` printed by another test appears in the stream beside the real `test sp - should panic ... ok`; a forged `ok` for a failing test is equally possible (E-4), the same forgeability FR-005 cites to reject mechanism A. The stated `test <name> ... ok|FAILED|ignored` grammar also misses `test x - should panic ... ok` and `test x ... ignored, <reason>`, and a missing or duplicate line on a normal exit is unhandled. libtest's stable `--logfile <path>` writes `ok <name>` / `failed <name>` / `ignored: <reason> <name>` lines untouched by test output (verified); use it, or cross-check against the final `failures:` list and exit status, and state the duplicate/missing-line rule. | spec/functional/FR-006-emission-run.md:31-36 |
 | FND-008 | medium | One 'named linker section' is not portable: Mach-O needs segment,section syntax, PE truncates image section names to 8 chars; retention mechanism and supported targets are unstated. `#[link_section = ".ix.trace"]` is rejected on Mach-O, which requires `__DATA,__name` (name at most 16 chars); a PE image keeps at most 8 chars of a section name, so a longer name the reader looks for is not found. The record needs `#[used]` to be kept: verified retained on x86_64 Linux with rustc 1.98.1 (debug, and release with fat LTO, codegen-units=1, strip=true), but retention against `--gc-sections` rests on SHF_GNU_RETAIN support in the linker, unverified for the crate's MSRV 1.75 or older GNU ld. The spec should name the per-format section names, require `#[used]`, list supported targets (wasm and other non-libtest targets excluded), and run FR-005-AC-10 on each supported platform. | spec/functional/FR-005-emission-mode.md:56-63 |
 
+## New findings (disposition pass 2)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-009 | medium | compile_error! for emit on wasm breaks feature-unified builds that include a wasm crate, contradicting FR-005's own unification guarantee. FR-005 says Cargo unifies `emit` across every package of one build and that a crate which never opted in 'still compiles'. With `emit` rejected by `compile_error!` on wasm, any invocation that builds a wasm-target crate using `#[trace]` alongside a package that enables `emit` (or a wasm32-wasi suite run under a runner such as wasmtime, which is still libtest) now fails to compile. 'Enabling emit cannot break a build that compiles without it' no longer holds. Make the expansion inert (no record) on unsupported targets and let the runner report a binary with no section; FR-005-AC-12 then asserts the item compiles unchanged. The same rule should cover other non-listed targets (windows-gnu, BSDs, Android), which the spec leaves unstated. | spec/functional/FR-005-emission-mode.md:67-75 |
+
 ## Dispositions
 
 | FND | outcome | reason |
@@ -96,3 +102,6 @@ fit for E-1, E-3, E-4, E-5, E-6 and E-8.
 | FND-003 | fixed | round 1, e6f4900 |
 | FND-004 | fixed | round 1, e6f4900 |
 | FND-005 | fixed | round 1, e6f4900 |
+| FND-006 | fixed | round 2, 6a7857b |
+| FND-007 | fixed | round 2, 6a7857b |
+| FND-008 | fixed | round 2, 6a7857b |

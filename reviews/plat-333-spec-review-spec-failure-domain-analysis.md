@@ -66,6 +66,14 @@ confusion, rstest attribute order), plus one low.
 | ------- | -------- | ------- | ---- |
 | FND-005 | low | The unsupported #[rstest]-above-#[trace] order produces case-level symbols silently; nothing reports the misuse. The order is documented as unsupported, but a run with it still writes the case's own name as the symbol with no diagnostic, so the E-2 miss is invisible. The ids still bind (FR-120 binds ids regardless of the symbol join), so impact is small; a stderr warning when a record's libtest name is itself a parametrized-looking case of an rstest module, or a documented lint, would surface it. | spec/functional/FR-005-emission-mode.md:75-82 |
 
+## New findings (disposition pass 2)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-006 | low | Joining unflagged records by libtest name lets an impl method or nested helper give its ids to a same-named test (E-3). A record's libtest name is module path plus identifier, with no impl type or enclosing fn. An `impl Foo { #[trace("X")] fn check(&self) }` in `mod tests` and a free `#[test] fn check` in the same module (legal: different namespaces) both map to `tests::check`, so the test receives `X`, which its source never declared. The macro can at least see a `self` receiver; otherwise record the case as unsupported or restrict the unflagged join to free fns. | spec/functional/FR-006-emission-run.md:56-60 |
+| FND-007 | low | 'Exits normally' is undefined: a process::exit(0) inside a test gives status 0 and an empty log, so the abnormal-exit rerun never fires. Reproduced: a test calling `std::process::exit(0)` ends the binary with status 0 and no log lines at all. The spec lists a process exit inside a test as abnormal (rerun alone), but by status it looks normal, so every unfinished test is marked fail instead of rerun. The result is conservative (fail, not pass) but contradicts AC-8's intent. Define abnormal as 'any listed test without a log line' regardless of status. | spec/functional/FR-006-emission-run.md:42-46 |
+| FND-008 | low | A newline in an #[ignore = ...] reason splits the log line, so an ignored test reads as missing and fails the run. Reproduced: `#[ignore = "two words\nnext"]` writes `ignored: two words` and `next ig` on two lines; under the exact-remainder rule `ig` has no line, so the cross-check makes it fail with a non-zero exit. Match a listed name as the trailing ` <name>` of a line and treat other lines as continuations, or state the limitation. | spec/functional/FR-006-emission-run.md:31-41 |
+
 ## Dispositions
 
 | FND | outcome | reason |
@@ -74,3 +82,4 @@ confusion, rstest attribute order), plus one low.
 | FND-002 | fixed | round 1, e6f4900 |
 | FND-003 | fixed | round 1, e6f4900 |
 | FND-004 | fixed | round 1, e6f4900 |
+| FND-005 | fixed | round 2, 6a7857b |

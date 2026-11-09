@@ -60,6 +60,13 @@ still promise an unconditional identity expansion) and one low inconsistency.
 | FND-002 | medium | FR-001 statement, Outputs and Behavior and spec.md In Scope still promise an unconditional identity expansion; only CON-1 was qualified. With `emit` on, FR-004 makes the expansion the item plus a registry entry. FR-001's statement ('expands to the annotated item unchanged'), Outputs ('byte-for-byte the input token stream') and Behavior ('SHALL return the annotated item unchanged') and spec.md line 56 ('The guarantee that all expand to the annotated item unchanged') remain unconditional, so FR-001 and FR-004 contradict each other. Qualify each with 'while `emit` is not enabled' as FR-001-CON-1 now is. | spec/functional/FR-001-trace-attribute.md:19,31,38 |
 | FND-003 | low | FR-005-AC-5 says rstest cases carry the source function name; the Behavior says they carry the entry's symbol (tests::<name>). FR-005 Behavior and FR-004 say each parametrized case carries the entry's symbol (module chain plus function name, e.g. `tests::name`), but AC-5 says `name` equal to 'the source function name'. A test asserting AC-5 literally checks the wrong value. Say 'the entry's symbol'. | spec/functional/FR-005-emission-run.md:69 |
 
+## New findings (disposition pass 2)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-004 | low | FR-006 'One writer' still says the runner creates no other file, contradicting the new Cleanup bullet and CON-2. Cleanup and FR-006-CON-2 now allow a temporary log file removed before exit, but the One writer bullet was not updated and still says 'SHALL create no other file'. Qualify it the same way. | spec/functional/FR-006-emission-run.md:80-81 |
+| FND-005 | low | 'Any fn item SHALL embed a record' inside its body is impossible for a bodyless fn (trait method declaration, extern fn). Placement puts the record inside the function body, but `fn f();` in a trait or an `extern` block has no body. FR-001 allows `#[trace]` there today. State that a bodyless fn expands unchanged with no record. | spec/functional/FR-005-emission-mode.md:76-78 |
+
 ## Dispositions
 
 | FND | outcome | reason |
