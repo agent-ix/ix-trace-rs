@@ -103,8 +103,9 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   belongs to is reported under its libtest name, with no `file` and no `trace`
   property; it carries no ids, so it needs no join to a declared symbol.
 - **File attribute.** Each `<testcase>` SHALL carry `file`, the record's `file!()`
-  value normalized to a repo-relative, `/`-separated path (the runner converts
-  `\` to `/` when it reads a record, so the value is the same on every platform),
+  value normalized to a repo-relative, `/`-separated path (on Windows the runner
+  converts `\` to `/` when it reads a record, so the value is the same on every
+  platform; elsewhere `\` is part of a directory name and is kept),
   and one
   `<property name="trace" value="ID1,ID2"/>` child when a record belongs to it.
   A case with no record carries no `trace` property.

@@ -153,13 +153,17 @@ fn tc019_every_tagged_test_keeps_its_record_through_linking() {
         1
     );
 
-    // The section carries the ELF name on Linux. On macOS and Windows the
-    // records above were found by the Mach-O and PE section names.
-    if cfg!(target_os = "linux") {
-        let data = std::fs::read(&binary(&bins, "basic").executable).unwrap();
-        let file = object::File::parse(&*data).unwrap();
-        assert!(file.sections().any(|s| s.name() == Ok("ixtrace")));
-    }
+    // The section carries the name of its object format.
+    let data = std::fs::read(&binary(&bins, "basic").executable).unwrap();
+    let file = object::File::parse(&*data).unwrap();
+    let name = if cfg!(target_os = "macos") {
+        "__ixtrace"
+    } else if cfg!(windows) {
+        ".ixtrace"
+    } else {
+        "ixtrace"
+    };
+    assert!(file.sections().any(|s| s.name() == Ok(name)), "no {name}");
 }
 
 #[trace("FR-005-AC-9")]
