@@ -90,8 +90,16 @@ Known limits, stated rather than hidden: FR-005-AC-1's "exactly the input
 tokens" is evidenced by the absence of a trace section in the default build, not
 by a token comparison. FR-005-AC-10 and the per-object-format section name of
 FR-005-AC-12 are verified on Linux (ELF) only; macOS and Windows MSVC are not
-claimed, so TC-019 stays pending. FR-006-AC-12 (TC-022, the cost over quire-rs)
-has not been run, so E-7 is unmeasured: the runner adds one `--list` process per
+claimed, so TC-019 stays pending. A CI matrix over `ubuntu-latest`,
+`macos-latest` and `windows-latest` running the `ix-trace-run` tests would
+verify it; `.github/workflows/ci.yml` runs them on Ubuntu only today.
+FR-006-AC-12 (TC-022, the cost over quire-rs) is measured by the ignored test
+`ix-trace-run/tests/cost_quire_rs.rs`, run with `cargo test -p ix-trace-run --release --test cost_quire_rs -- --ignored --nocapture` (`QUIRE_RS_DIR` names a quire-rs checkout
+whose `ix-trace-rs` dev-dependency has `emit` on; `QUIRE_RS_ROUNDS` raises the
+five alternating rounds). The test prints the quire-rs revision when it runs.
+Runs on a shared, loaded host were inconclusive (unloaded pairs gave ratios
+from 0.92 to 1.14), so TC-022 stays pending until the test passes on a quiet
+host. The runner adds one `--list` process per
 binary (two with test arguments) and one process per alone-rerun, and no cargo
 startups. The environment given to a test binary is rebuilt, not cargo's own, and
 omits variables such as `CARGO_PRIMARY_PACKAGE`, build-script `rustc-env` values,
