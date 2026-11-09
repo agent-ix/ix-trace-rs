@@ -30,8 +30,9 @@ contract, tracked as external deliverable **EXT-4b** in quire-rs's Plan-001.
 The sibling deliverables are a pytest plugin registering a `trace` marker
 (EXT-4a) and a vitest/jest helper (EXT-4c).
 
-Runtime queryability — running every test for a requirement, tagging JUnit
-output — is a benefit of the marker form, not a requirement this crate serves.
+With the opt-in `emit` feature and the `ix-trace-run` runner, the declared ids
+are also written into the run's own JUnit result file (FR-005, FR-006). Without
+`emit` the marker is inert, as below.
 
 ## Contract
 
@@ -57,8 +58,8 @@ cheap to take as a dev-dependency in every repo that authors traced tests.
 ix-trace-rs = "0.1"
 ```
 
-Markers carry no runtime cost: they are gone by the time the compiler finishes
-expanding them.
+Without `emit`, markers carry no runtime cost: they are gone by the time the
+compiler finishes expanding them.
 
 ## Import it; do not path-qualify it
 

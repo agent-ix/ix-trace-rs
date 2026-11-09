@@ -16,7 +16,7 @@ relationships:
 ## Description
 
 The crate SHALL export an attribute macro `trace` that accepts a comma-separated
-list of specification ids and expands to the annotated item unchanged, so that a
+list of specification ids and, while the `emit` feature is not enabled, expands to the annotated item unchanged, so that a
 symbol declares the ids it **verifies** in a form the compiler accepts and a
 static reader can extract without executing anything.
 
@@ -28,18 +28,23 @@ static reader can extract without executing anything.
 
 ## Outputs
 
-- The annotated item, byte-for-byte the input token stream, when the argument
-  list is well formed.
+- While `emit` is not enabled: the annotated item, byte-for-byte the input token
+  stream, when the argument list is well formed. While `emit` is enabled, the same
+  item, plus a trace record inside a `fn` item
+  ([FR-005](./FR-005-emission-mode.md)).
 - The annotated item preceded by a `compile_error!` invocation otherwise
   ([FR-003](./FR-003-argument-grammar.md)).
 
 ## Behavior
 
-- The macro SHALL return the annotated item unchanged whenever the argument list
-  is well formed.
-- The macro SHALL NOT inspect, rewrite, reorder, or execute the annotated item.
+- While `emit` is not enabled, the macro SHALL return the annotated item
+  unchanged whenever the argument list is well formed.
+- While `emit` is not enabled, the macro SHALL NOT inspect, rewrite, reorder, or
+  execute the annotated item.
 - The macro SHALL accept the attribute above or below `#[test]`, leaving test
   harness registration undisturbed.
+  While `emit` is enabled, `#[test]` written above `#[trace]` still runs and is
+  recorded, with the record's `test` flag clear ([FR-005](./FR-005-emission-mode.md)).
 - The macro SHALL accept an argument list wrapped in an invisible group, so that
   an id supplied by an enclosing macro expansion is not rejected.
 
@@ -47,7 +52,7 @@ static reader can extract without executing anything.
 
 | ID | Constraint | Type | Validation |
 |----|------------|------|------------|
-| FR-001-CON-1 | The expansion SHALL add no runtime code, no static, and no registration side effect — the crate is a marker, and a marker that emits code changes what it annotates | Design | Test |
+| FR-001-CON-1 | While the `emit` feature is not enabled ([FR-005](./FR-005-emission-mode.md)), the expansion SHALL add no runtime code, no static, and no registration side effect — the crate is a marker, and a marker that emits code changes what it annotates | Design | Test |
 
 ## Acceptance Criteria
 
