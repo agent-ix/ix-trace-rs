@@ -53,13 +53,13 @@ verifies nothing.
 - The `#[trace(...)]` and `#[implements(...)]` attribute macros, their argument
   grammar, and their compile-time diagnostics.
 - The `#[string_edge]` marker attribute ([FR-004](./functional/FR-004-string-edge-attribute.md)).
-- The guarantee that all expand to the annotated item unchanged.
+- The guarantee that, while `emit` is not enabled, all expand to the annotated item unchanged.
 - The crate's dependency posture, which governs what adopting it costs a
   consumer.
 - The opt-in `emit` mode and the companion `ix-trace-run` runner, which put the
   declared ids into the run's own JUnit result file as the Rust half of the
-  emitter contract of `ix://agent-ix/quoin/FR-120` ([FR-004](./functional/FR-004-emission-mode.md),
-  [FR-005](./functional/FR-005-emission-run.md)).
+  emitter contract of `ix://agent-ix/quoin/FR-120` ([FR-005](./functional/FR-005-emission-mode.md),
+  [FR-006](./functional/FR-006-emission-run.md)).
 
 ### Out of Scope
 
@@ -83,7 +83,7 @@ verifies nothing.
 
 A dependency-free proc-macro crate. Each attribute receives two token streams,
 validates the argument list against the id grammar by hand over
-`proc_macro::TokenTree`, and returns the annotated item unchanged. On rejection
+`proc_macro::TokenTree`, and returns the annotated item unchanged (with `emit` enabled, a test function also gains an embedded trace record, FR-005). On rejection
 it prepends a `compile_error!` whose tokens carry the span of the offending
 literal, so the diagnostic underlines the argument at fault rather than the
 whole attribute.
@@ -107,8 +107,8 @@ string literals; `string_edge` takes none. All expand to their input.
   ([FR-003](./functional/FR-003-argument-grammar.md)), plus the argument-free
   `string_edge` marker ([FR-004](./functional/FR-004-string-edge-attribute.md)).
 - **Emission** — the opt-in registry and the runner that writes marks into JUnit
-  ([FR-004](./functional/FR-004-emission-mode.md),
-  [FR-005](./functional/FR-005-emission-run.md)).
+  ([FR-005](./functional/FR-005-emission-mode.md),
+  [FR-006](./functional/FR-006-emission-run.md)).
 - **Non-functional** — the dependency posture that decides adoption cost
   ([NFR-001](./non-functional/NFR-001-dependency-posture.md)).
 - **Stakeholder** — the need the crate answers

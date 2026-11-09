@@ -33,9 +33,10 @@ The trade is deliberate — a few dozen lines of hand-written token walking here
 in one place, against a dependency in ~150 build graphs.
 
 The statement binds the `ix-trace-rs` proc-macro crate in every mode, including
-with `emit` enabled. The runtime support for emission lives in the separate
-companion crate `ix-trace-run` ([FR-004](../functional/FR-004-emission-mode.md)),
-which only a consumer that records evidence lists, as a dev-dependency.
+with `emit` enabled. The expansion with `emit` needs only `core`, and the runner
+is the separate binary crate `ix-trace-run`
+([FR-006](../functional/FR-006-emission-run.md)), which no consumer lists as a
+dependency.
 
 Development dependencies are a separate matter and are permitted. Cargo does not
 propagate them transitively, so the compile-fail harness this crate uses for its

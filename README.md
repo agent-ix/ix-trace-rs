@@ -31,7 +31,7 @@ The sibling deliverables are a pytest plugin registering a `trace` marker
 (EXT-4a) and a vitest/jest helper (EXT-4c).
 
 With the opt-in `emit` feature and the `ix-trace-run` runner, the declared ids
-are also written into the run's own JUnit result file (FR-004, FR-005). Without
+are also written into the run's own JUnit result file (FR-005, FR-006). Without
 `emit` the marker is inert, as below.
 
 ## Contract
