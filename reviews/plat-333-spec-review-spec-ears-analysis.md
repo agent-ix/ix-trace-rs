@@ -35,3 +35,10 @@ Units examined:
 | ------- | -------- | ------- | ---- |
 | FND-001 | low | FR-004 uses an event trigger ('When the cargo feature emit is enabled') for a state. A cargo feature being enabled is a build state, not an event. EARS state-driven form is 'While the `emit` feature is enabled, ...', matching the edited FR-001-CON-1 ('While the `emit` feature is not enabled'). | spec/functional/FR-004-emission-mode.md:19-24 |
 | FND-002 | low | FR-005 statement is compound: it provides a runner that executes the binaries and also writes the JUnit file. The statement binds two obligations (execute the test binaries under libtest; write the final JUnit file with trace properties). The Behavior bullets already split them; the statement could name the one outcome ('SHALL write the run's JUnit result file, in which ...') and leave execution to the Behavior. | spec/functional/FR-005-emission-run.md:19-24 |
+
+## Dispositions
+
+| FND | outcome | reason |
+| --- | ------- | ------ |
+| FND-001 | fixed | round 1, e6f4900 |
+| FND-002 | fixed | round 1, e6f4900 |

@@ -59,3 +59,11 @@ still promise an unconditional identity expansion) and one low inconsistency.
 | FND-001 | high | Id collision: FR-004 is already the string_edge requirement; the matrix now counts string_edge tests as evidence for the emitter ACs. `spec/functional/FR-004-string-edge-attribute.md` (merged in #14) already has `id: FR-004` with FR-004-AC-1..3 and FR-004-CON-1. The new file reuses FR-004, so `quire matrix` on the PR tree reports emitter FR-004-AC-1 tagged by tests/string_edge.rs:47, AC-2 by tests/compile_fail.rs:22, AC-3 by tests/string_edge.rs:66 and CON-1 by tests/dependency_posture.rs:13: green status for behaviour that does not exist. tests.md now has two `FR-004` rows and spec.md links FR-004 to two files. Renumber the emitter requirements (FR-005 and FR-006) and every reference to them here and in quire-rs#612. | spec/functional/FR-004-emission-mode.md:2 |
 | FND-002 | medium | FR-001 statement, Outputs and Behavior and spec.md In Scope still promise an unconditional identity expansion; only CON-1 was qualified. With `emit` on, FR-004 makes the expansion the item plus a registry entry. FR-001's statement ('expands to the annotated item unchanged'), Outputs ('byte-for-byte the input token stream') and Behavior ('SHALL return the annotated item unchanged') and spec.md line 56 ('The guarantee that all expand to the annotated item unchanged') remain unconditional, so FR-001 and FR-004 contradict each other. Qualify each with 'while `emit` is not enabled' as FR-001-CON-1 now is. | spec/functional/FR-001-trace-attribute.md:19,31,38 |
 | FND-003 | low | FR-005-AC-5 says rstest cases carry the source function name; the Behavior says they carry the entry's symbol (tests::<name>). FR-005 Behavior and FR-004 say each parametrized case carries the entry's symbol (module chain plus function name, e.g. `tests::name`), but AC-5 says `name` equal to 'the source function name'. A test asserting AC-5 literally checks the wrong value. Say 'the entry's symbol'. | spec/functional/FR-005-emission-run.md:69 |
+
+## Dispositions
+
+| FND | outcome | reason |
+| --- | ------- | ------ |
+| FND-001 | fixed | round 1, e6f4900 |
+| FND-002 | fixed | round 1, e6f4900 |
+| FND-003 | fixed | round 1, e6f4900 |

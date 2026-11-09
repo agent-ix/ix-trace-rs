@@ -59,3 +59,18 @@ confusion, rstest attribute order), plus one low.
 | FND-002 | medium | Stripping a '::' suffix to find the entry attributes ids to an untagged test in a same-named module (E-3); the number of segments stripped is unstated. Rust allows `fn foo` and `mod foo` side by side. With `#[trace] fn foo` registered as `tests::foo`, an untagged `tests::foo::bar` in `mod foo` matches 'the symbol with a ::-delimited case suffix removed' and receives foo's ids: ids the source never declared for that test (E-3). The rule also does not say whether one or several trailing segments are stripped (rstest `#[values]` matrices nest more than one level). Mark entries as parametrized (the macro can see `#[rstest]` when above it) and map suffixes only for those, stating the depth. | spec/functional/FR-005-emission-run.md:37-43 |
 | FND-003 | medium | Attribute order is unstated: #[rstest] above #[trace] re-applies #[trace] to each generated case, registering per-case symbols. Outer attributes expand first. With `#[trace]` above `#[rstest]` the macro sees the source fn and registers it once. With `#[rstest]` above, rstest's expansion copies the remaining attributes onto each generated case fn inside `mod name`, so `#[trace]` registers `tests::name::case_1`, ... instead of `tests::name`, contradicting AC-4 and changing the reported symbol. FR-001 promises either order works for `#[test]`; state the rule for rstest (require `#[trace]` outermost, or handle both) and cover both orders. | spec/functional/FR-004-emission-mode.md:91 |
 | FND-004 | low | Rationale for the in-function-body case is inaccurate; the real reason is that libtest never runs such a test. A `#[test]` declared inside a function body is not collected by libtest at all (rustc `unnameable_test_items`), so it never runs; that, not only the symbol mismatch, is why reporting it as unmatched and exiting non-zero is the right outcome. The behaviour is acceptable; correct the stated reason so a later reader does not 'fix' it by inventing a symbol. | spec/functional/FR-004-emission-mode.md:69-72 |
+
+## New findings (disposition pass 1)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-005 | low | The unsupported #[rstest]-above-#[trace] order produces case-level symbols silently; nothing reports the misuse. The order is documented as unsupported, but a run with it still writes the case's own name as the symbol with no diagnostic, so the E-2 miss is invisible. The ids still bind (FR-120 binds ids regardless of the symbol join), so impact is small; a stderr warning when a record's libtest name is itself a parametrized-looking case of an rstest module, or a documented lint, would surface it. | spec/functional/FR-005-emission-mode.md:75-82 |
+
+## Dispositions
+
+| FND | outcome | reason |
+| --- | ------- | ------ |
+| FND-001 | fixed | round 1, e6f4900 |
+| FND-002 | fixed | round 1, e6f4900 |
+| FND-003 | fixed | round 1, e6f4900 |
+| FND-004 | fixed | round 1, e6f4900 |

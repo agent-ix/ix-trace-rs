@@ -30,7 +30,7 @@ static reader can extract without executing anything.
 
 - While `emit` is not enabled: the annotated item, byte-for-byte the input token
   stream, when the argument list is well formed. While `emit` is enabled, the same
-  item, plus a trace record inside a qualifying test function
+  item, plus a trace record inside a `fn` item
   ([FR-005](./FR-005-emission-mode.md)).
 - The annotated item preceded by a `compile_error!` invocation otherwise
   ([FR-003](./FR-003-argument-grammar.md)).
@@ -43,6 +43,8 @@ static reader can extract without executing anything.
   execute the annotated item.
 - The macro SHALL accept the attribute above or below `#[test]`, leaving test
   harness registration undisturbed.
+  While `emit` is enabled, `#[test]` written above `#[trace]` still runs and is
+  recorded, with the record's `test` flag clear ([FR-005](./FR-005-emission-mode.md)).
 - The macro SHALL accept an argument list wrapped in an invisible group, so that
   an id supplied by an enclosing macro expansion is not rejected.
 
