@@ -8,3 +8,6 @@ target/
 *-target/
 target-*/
 .worktrees/
+
+# Fixture crates for ix-trace-run tests are built, never locked.
+ix-trace-run/tests/fixtures/**/Cargo.lock
