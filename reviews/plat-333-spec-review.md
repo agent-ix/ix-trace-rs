@@ -105,3 +105,4 @@ fit for E-1, E-3, E-4, E-5, E-6 and E-8.
 | FND-006 | fixed | round 2, 6a7857b |
 | FND-007 | fixed | round 2, 6a7857b |
 | FND-008 | fixed | round 2, 6a7857b |
+| FND-009 | fixed | round 3, 69460b1 |

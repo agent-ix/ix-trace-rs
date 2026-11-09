@@ -74,3 +74,5 @@ still promise an unconditional identity expansion) and one low inconsistency.
 | FND-001 | fixed | round 1, e6f4900 |
 | FND-002 | fixed | round 1, e6f4900 |
 | FND-003 | fixed | round 1, e6f4900 |
+| FND-004 | fixed | round 3, 69460b1 |
+| FND-005 | fixed | round 3, 69460b1 |

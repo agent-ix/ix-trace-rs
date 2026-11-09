@@ -75,3 +75,4 @@ undefined, and `tokio::test`, which the mechanism decision relies on, has no cri
 | FND-001 | fixed | round 1, e6f4900 |
 | FND-002 | fixed | round 1, e6f4900 |
 | FND-003 | fixed | round 2, 6a7857b |
+| FND-004 | accepted-no-change | The `#[values]` miss remains; FR-006 now states the warning is best effort and names that gap, and AC-13 exempts it. The order itself is documented unsupported and ids still bind, so a warning-only heuristic gap does not block. |

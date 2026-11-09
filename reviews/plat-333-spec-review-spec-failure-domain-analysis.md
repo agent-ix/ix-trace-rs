@@ -83,3 +83,6 @@ confusion, rstest attribute order), plus one low.
 | FND-003 | fixed | round 1, e6f4900 |
 | FND-004 | fixed | round 1, e6f4900 |
 | FND-005 | fixed | round 2, 6a7857b |
+| FND-006 | fixed | round 3, 69460b1 |
+| FND-007 | fixed | round 3, 69460b1 |
+| FND-008 | fixed | round 3, 69460b1 |
