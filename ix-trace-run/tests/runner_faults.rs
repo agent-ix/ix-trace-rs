@@ -219,9 +219,10 @@ fn the_executed_binary_is_the_inspected_one_under_feature_unification() {
 #[test]
 fn a_configured_target_runner_is_refused() {
     let dir = tempfile::tempdir().expect("temp dir");
+    let result = dir.path().join("result.xml");
     let out = std::process::Command::new(env!("CARGO_BIN_EXE_ix-trace-run"))
         .arg("--output")
-        .arg(dir.path().join("result.xml"))
+        .arg(&result)
         .arg("--manifest-path")
         .arg(common::manifest("harness_false"))
         .env("CARGO_TARGET_DIR", common::target_dir())
@@ -230,4 +231,5 @@ fn a_configured_target_runner_is_refused() {
         .expect("runner starts");
     assert_eq!(out.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&out.stderr).contains("does not support target runners"));
+    assert!(!result.exists(), "a refused run must write no result file");
 }

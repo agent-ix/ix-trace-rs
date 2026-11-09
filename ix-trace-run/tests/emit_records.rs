@@ -41,16 +41,17 @@ fn tc017_without_emit_the_binary_has_no_trace_section() {
 fn a_rejected_argument_list_gives_the_same_error_with_emit_on_and_off() {
     let errors = |features: &[&str]| -> Vec<String> {
         let out = Command::new("cargo")
-            .args(["build", "--tests", "--manifest-path"])
+            .args(["build", "--tests", "--color", "never", "--manifest-path"])
             .arg(manifest("badargs"))
             .args(features)
             .env("CARGO_TARGET_DIR", target_dir())
+            .env_remove("CARGO_TERM_COLOR")
             .output()
             .expect("cargo starts");
         assert!(!out.status.success(), "prose must not compile");
         String::from_utf8_lossy(&out.stderr)
             .lines()
-            .filter(|l| l.starts_with("error"))
+            .filter(|l| l.contains("is not a spec id"))
             .map(str::to_owned)
             .collect()
     };

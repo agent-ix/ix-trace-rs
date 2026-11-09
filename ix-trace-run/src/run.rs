@@ -242,7 +242,7 @@ fn list(binary: &TestBinary, env: &Environment, extra: &[&str]) -> Result<Vec<St
     let output = env
         .command(binary, &args)
         .output()
-        .map_err(|err| format!("cannot start cargo: {err}"))?;
+        .map_err(|err| format!("cannot start the test binary: {err}"))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("{}: {}", output.status, stderr.trim()));

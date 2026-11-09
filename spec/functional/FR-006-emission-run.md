@@ -43,7 +43,10 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   the native library directories of the build scripts. A configured target runner
   (`target.<triple>.runner` in cargo config, a `CARGO_TARGET_<TRIPLE>_RUNNER`
   variable or a `--config` with a runner) is unsupported and the runner SHALL stop
-  with an error that says so. It passes libtest's
+  with an error that says so. The rebuilt environment does not include the values
+  build scripts export with `cargo:rustc-env`, `OUT_DIR` for a package with a build
+  script, or the `[env]` entries of cargo config; a test that reads them at run time
+  sees them unset. It passes libtest's
   `--logfile <temporary path>`. Outcomes SHALL come from that log file, which
   the harness writes and test output cannot reach, and never from stdout. Its
   line forms are `ok <name>`, `failed <name>`, `ignored <name>` and

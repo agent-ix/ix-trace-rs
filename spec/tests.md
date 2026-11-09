@@ -94,7 +94,8 @@ claimed, so TC-019 stays pending. FR-006-AC-12 (TC-022, the cost over quire-rs)
 has not been run, so E-7 is unmeasured: the runner adds one `--list` process per
 binary (two with test arguments) and one process per alone-rerun, and no cargo
 startups. The environment given to a test binary is rebuilt, not cargo's own, and
-omits variables such as `CARGO_PRIMARY_PACKAGE`. The fixture crates for rstest and tokio fetch those crates on
+omits variables such as `CARGO_PRIMARY_PACKAGE`, build-script `rustc-env` values,
+`OUT_DIR` and cargo-config `[env]` entries. The fixture crates for rstest and tokio fetch those crates on
 first use (network needed once); their committed lockfiles pin the versions.
 
 GREEN for the v1 surface, with two rows honestly pending.

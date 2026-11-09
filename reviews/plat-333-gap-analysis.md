@@ -86,3 +86,4 @@ The rstest behaviour was measured on rstest 0.26.1 with probe crates:
 | FND-004 | fixed | 25363df: TC-020 and TC-021 now rest on end-to-end tests; TC-019 and TC-022 stay pending |
 | FND-005 | accepted-no-change | The partial clauses remain partial, but a Known limits paragraph in spec/tests.md now states each one (AC-1 by absence of a section, AC-10 and AC-12 on Linux only), and FR-006-AC-11's vacuous clause was removed |
 | FND-006 | fixed | 25363df: Reported symbol is narrowed to cases that have a record; untagged cases are stated to need no join |
+| FND-007 | fixed | a18383e: FR-006-AC-20..23 were added for the unlistable-binary, binary-identity and target-runner behaviour; tests are tagged; the matrix row reads AC-1..23 |

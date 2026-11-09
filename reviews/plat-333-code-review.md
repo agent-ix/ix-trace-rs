@@ -107,3 +107,13 @@ from an empty container, for top-level, `mod tests` and rstest-source names.
 | FND-007 | fixed | 25363df: `[lints.rust] unsafe_code = "forbid"`; a `thiserror` `Error` with a `Copy` `ErrorCode` |
 | FND-008 | fixed | 25363df: the seven unit tests carry trace attributes |
 | FND-009 | fixed | 25363df: fixture lockfiles are committed and pin rstest and tokio; the network is needed once, as disclosed in Known limits |
+| FND-010 | fixed | a18383e: the runner executes the exact `--no-run` artifact with a rebuilt cargo env and never re-invokes `cargo test`; the reviewer re-ran the `unified` reproduction and the executed path equals the inspected path for a and b; a regression test asserts it |
+| FND-011 | fixed | a18383e: tagged FR-006-AC-20, -21 and -22 |
+| FND-012 | deferred | E-7 is still unmeasured; TC-022 (FR-006-AC-12) stays pending and is disclosed in Known limits. The extra cargo startups this finding named are gone (one `--list` process per binary, no cargo) |
+
+## New findings (disposition pass 2)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-013 | low | The rebuilt environment omits variables `cargo test` sets at run time: build-script `cargo:rustc-env` values, `OUT_DIR` for packages with a build script, and cargo-config `[env]` entries. A test that reads one of them with `std::env::var` behaves differently under the runner. quire-rs is not affected: its only build-script variables are read with compile-time `env!` | ix-trace-run/src/cargo.rs:165-199 |
+| FND-014 | low | Two small gaps. The FR-006-AC-23 test does not assert that no result file is written, although the AC says so. The `list` failure message still says "cannot start cargo" although it now starts the test binary (seen in the reviewer's probe, where a non-executable binary gives a loud error and exit 1) | ix-trace-run/tests/runner_faults.rs:218-232; ix-trace-run/src/run.rs:243 |
