@@ -90,8 +90,21 @@ Known limits, stated rather than hidden: FR-005-AC-1's "exactly the input
 tokens" is evidenced by the absence of a trace section in the default build, not
 by a token comparison. FR-005-AC-10 and the per-object-format section name of
 FR-005-AC-12 are verified on Linux (ELF) only; macOS and Windows MSVC are not
-claimed, so TC-019 stays pending. FR-006-AC-12 (TC-022, the cost over quire-rs)
-has not been run, so E-7 is unmeasured: the runner adds one `--list` process per
+claimed, so TC-019 stays pending. A CI matrix over `ubuntu-latest`,
+`macos-latest` and `windows-latest` running the `ix-trace-run` tests would
+verify it; `.github/workflows/ci.yml` runs them on Ubuntu only today.
+FR-006-AC-12 (TC-022, the cost over quire-rs) is measured by the ignored test
+`ix-trace-run/tests/cost_quire_rs.rs` (`QUIRE_RS_DIR` names a quire-rs checkout
+whose `ix-trace-rs` dev-dependency has `emit` on; `QUIRE_RS_ROUNDS` raises the
+five alternating rounds). Measured at quire-rs 09a0c6317b7dec0211eae9bb60a1af22d323c1f7,
+`--workspace --tests`, `--test-threads=4`, binaries prebuilt: three runs gave a
+median runner/stock ratio of 82.9% (5 rounds), 111.5% (5) and 47.5% (9). The
+host was shared and at load average 17 to 21 on 14 cores, and stock `cargo test`
+swung between 84 s and 426 s while the runner stayed at 84 s to 125 s apart from
+two outliers, so the medians say load, not cost. Pairs in which both modes ran
+unloaded (both under 105 s) gave ratios of 0.92 to 1.14, median 0.99. That is
+suggestive of a cost near zero, not a pass: TC-022 stays pending until the test
+passes on a quiet host. The runner adds one `--list` process per
 binary (two with test arguments) and one process per alone-rerun, and no cargo
 startups. The environment given to a test binary is rebuilt, not cargo's own, and
 omits variables such as `CARGO_PRIMARY_PACKAGE`, build-script `rustc-env` values,
