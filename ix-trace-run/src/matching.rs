@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Component, Path, PathBuf};
 
-use crate::registry::Record;
+use crate::registry::{slashed, Record};
 
 /// Where a test binary's sources live, as cargo reports them.
 #[derive(Clone, Debug)]
@@ -163,7 +163,7 @@ fn absolute(file: &str, workspace_root: &Path) -> PathBuf {
 pub fn normalize_file(file: &str, workspace_root: &Path) -> String {
     let path = absolute(file, workspace_root);
     let relative = path.strip_prefix(workspace_root).unwrap_or(Path::new(file));
-    let text = relative.to_string_lossy().replace('\\', "/");
+    let text = slashed(&relative.to_string_lossy());
     text.strip_prefix("./").unwrap_or(&text).to_owned()
 }
 

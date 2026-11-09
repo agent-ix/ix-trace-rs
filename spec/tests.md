@@ -48,7 +48,7 @@ has no business expressing anyone else's.
 | FR-002 implements attribute | AC-1..3 | TC-004 (transparency), TC-005 (both attributes on one item), TC-009 (rejects prose, names `implements`) | ✅ |
 | FR-003 argument grammar | AC-1..7 | TC-006 (real id forms accepted), TC-007 (prose rejected), TC-008 (vocabulary not checked), TC-009 (compile-fail suite: prose, non-literal, empty list, empty string, second-argument span) | 🚧 |
 | FR-004 string_edge attribute | AC-1..3, CON-1 | TC-015 (transparent on free functions and methods), TC-009 (rejects an argument, item retained), TC-016 (composes with `#[test]`), TC-014 (CON-1: no dependency added) | ✅ |
-| FR-005 emission mode | AC-1..13; CON-1..3 | TC-017 (inert default, bad arguments, `implements` registers nothing), TC-018 (records: ids, non-qualifying items, rstest order, tokio, untagged), TC-019 (unification, link retention) | 🚧 |
+| FR-005 emission mode | AC-1..13; CON-1..3 | TC-017 (inert default, bad arguments, `implements` registers nothing), TC-018 (records: ids, non-qualifying items, rstest order, tokio, untagged), TC-019 (unification, link retention) | ✅ |
 | FR-006 emission run | AC-1..23; CON-1..2 | TC-020 (JUnit shape, non-root file naming, outcomes, tokio), TC-021 (concurrency, rstest matching, abnormal exit, unmatched record, single write), TC-022 (cost on quire-rs) | 🚧 |
 | NFR-001 dependency posture | AC-1..3 | TC-014 (`[dependencies]` empty, no parsing crate imported) | ✅ |
 
@@ -71,7 +71,7 @@ has no business expressing anyone else's.
 | TC-014 | `[dependencies]` is present and empty, and `src/lib.rs` imports no parsing or quoting crate — the cost this bounds is paid by ~150 consuming repositories (`dependency_posture::tc014_*`) | Unit | P0 | NFR-001-AC-1, NFR-001-AC-2, FR-004-CON-1 | ✅ |
 | TC-017 | With `emit` off the expansion equals the input and the binary has no trace section; with `emit` on a bad argument list gives the same `compile_error!` and `#[implements]` yields no record | Unit | P0 | FR-005-AC-1, FR-005-AC-6, FR-005-AC-7, FR-005-CON-1, FR-005-CON-3 | ✅ |
 | TC-018 | With `emit` on, a tagged test yields one record with ids in order, identifier, module path and file; a struct yields none, a method with a `self` receiver yields none, an associated fn without a receiver and a non-test fn yield an unflagged record, and all compile; `#[test]` written above `#[trace]` still gets its ids; rstest below `#[trace]` (one parametrized record) and a path-qualified `#[ix_trace_rs::trace]` after the cases (one record per case), `#[tokio::test]` in both orders, and an untagged test behave as stated | Integration | P0 | FR-005-AC-2, FR-005-AC-3, FR-005-AC-4, FR-005-AC-5, FR-005-AC-8, FR-005-AC-11 | ✅ |
-| TC-019 | With `emit` on for one package, a second package without `ix-trace-run` still compiles and passes; every tagged test of a fixture keeps its record through linking on each supported platform, and a `wasm` crate builds with no section | Integration | P0 | FR-005-AC-9, FR-005-AC-10, FR-005-AC-12, FR-005-AC-13 | 🚧 |
+| TC-019 | With `emit` on for one package, a second package without `ix-trace-run` still compiles and passes; every tagged test of a fixture keeps its record through linking on each supported platform, and a `wasm` crate builds with no section | Integration | P0 | FR-005-AC-9, FR-005-AC-10, FR-005-AC-12, FR-005-AC-13 | ✅ |
 | TC-020 | The runner over a fixture crate reads records from the binary alone and writes JUnit from libtest's `--logfile` (a test forging stdout changes nothing; a missing line is rerun and a duplicate line fails; a `harness = false` target is run as is, a rejected test argument is an error, and a `prefer-dynamic` binary finds its libraries through the rebuilt search path; the executed binary is the inspected one under feature unification; a configured target runner is refused): pass, panic, ignored, `should_panic` and `tokio::test` cases carry `trace` with the right outcome; a test in `mod tests` of `src/foo/bar.rs` reports `tests::t` | Integration | P0 | FR-006-AC-1, FR-006-AC-2, FR-006-AC-3, FR-006-AC-4, FR-006-AC-5, FR-006-AC-10, FR-006-AC-14, FR-006-AC-15, FR-006-AC-17, FR-006-AC-18, FR-006-AC-20, FR-006-AC-21, FR-006-AC-22, FR-006-AC-23 | ✅ |
 | TC-021 | Concurrent tests keep their own ids; rstest cases report the source name and a same-named module's untagged test gets no mark; an aborting binary loses no test; the path-qualified rstest misuse warning is printed without changing the exit status; a duplicate-name ambiguity marks nothing; `process::exit(0)` is re-run; an unmatched record is reported with non-zero exit; one output file is written once and plain `cargo test` writes no mark | Integration | P0 | FR-006-AC-6, FR-006-AC-7, FR-006-AC-8, FR-006-AC-9, FR-006-AC-11, FR-006-AC-13, FR-006-AC-16, FR-006-AC-19 | ✅ |
 | TC-022 | The runner's median wall-clock over the quire-rs suite, binaries prebuilt, warm cache, equal thread count, five alternating runs, stays under 105% of `cargo test --tests`; the quire-rs revision is recorded in the output | Benchmark | P1 | FR-006-AC-12, FR-006-CON-1 | 🚧 |
@@ -88,11 +88,11 @@ has no business expressing anyone else's.
 
 Known limits, stated rather than hidden: FR-005-AC-1's "exactly the input
 tokens" is evidenced by the absence of a trace section in the default build, not
-by a token comparison. FR-005-AC-10 and the per-object-format section name of
-FR-005-AC-12 are verified on Linux (ELF) only; macOS and Windows MSVC are not
-claimed, so TC-019 stays pending. A CI matrix over `ubuntu-latest`,
-`macos-latest` and `windows-latest` running the `ix-trace-run` tests would
-verify it; `.github/workflows/ci.yml` runs them on Ubuntu only today.
+by a token comparison. FR-005-AC-10 runs on the Linux, macOS and Windows MSVC CI
+legs, and TC-019 asserts the section name of each object format there (`ixtrace`
+on ELF, `__ixtrace` on Mach-O, `.ixtrace` on PE). The `wasm32-unknown-unknown`
+no-section check of FR-005-AC-12 runs on every CI leg, which installs that
+target; locally it returns early when the target is absent.
 FR-006-AC-12 (TC-022, the cost over quire-rs) is measured by the ignored test
 `ix-trace-run/tests/cost_quire_rs.rs`, run with `cargo test -p ix-trace-run --release --test cost_quire_rs -- --ignored --nocapture` (`QUIRE_RS_DIR` names a quire-rs checkout
 whose `ix-trace-rs` dev-dependency has `emit` on; `QUIRE_RS_ROUNDS` raises the

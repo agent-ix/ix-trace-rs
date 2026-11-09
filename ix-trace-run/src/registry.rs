@@ -128,6 +128,19 @@ pub fn parse_records(bytes: &[u8]) -> Registry {
     registry
 }
 
+/// A `/`-separated form of a path text. Only Windows writes `\` as a separator,
+/// so elsewhere the text is kept: `\` there is part of a directory name.
+#[cfg(windows)]
+pub(crate) fn slashed(text: &str) -> String {
+    text.replace('\\', "/")
+}
+
+/// A `/`-separated form of a path text (see the Windows form).
+#[cfg(not(windows))]
+pub(crate) fn slashed(text: &str) -> String {
+    text.to_owned()
+}
+
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
@@ -149,7 +162,7 @@ fn parse_one(body: &[u8]) -> Option<Record> {
         ids: ids.split(',').map(str::to_owned).collect(),
         ident: ident.to_owned(),
         module_path: module_path.to_owned(),
-        file: file.to_owned(),
+        file: slashed(file),
         test: flags.starts_with('t'),
         parametrized: flags.ends_with('p'),
     })
@@ -178,5 +191,18 @@ mod tests {
         assert_eq!(records[0].libtest_name(), "tests::t");
         assert!(!records[1].test && records[1].parametrized);
         assert_eq!(records[1].libtest_name(), "u");
+    }
+
+    #[trace("FR-006-AC-1")]
+    #[test]
+    fn a_backslash_is_a_separator_only_on_windows() {
+        let bytes = b"\x02IXTR1t-\x1fTC-1\x1ft\x1fc\x1fcrates/my\\pkg/src/lib.rs\x03";
+        let file = &parse_records(bytes).records[0].file;
+        let expected = if cfg!(windows) {
+            "crates/my/pkg/src/lib.rs"
+        } else {
+            "crates/my\\pkg/src/lib.rs"
+        };
+        assert_eq!(file, expected);
     }
 }
