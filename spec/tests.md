@@ -46,6 +46,8 @@ has no business expressing anyone else's.
 | FR-002 implements attribute | AC-1..3 | TC-004 (transparency), TC-005 (both attributes on one item), TC-009 (rejects prose, names `implements`) | ✅ |
 | FR-003 argument grammar | AC-1..7 | TC-006 (real id forms accepted), TC-007 (prose rejected), TC-008 (vocabulary not checked), TC-009 (compile-fail suite: prose, non-literal, empty list, empty string, second-argument span) | 🚧 |
 | FR-004 string_edge attribute | AC-1..3, CON-1 | TC-015 (transparent on free functions and methods), TC-009 (rejects an argument, item retained), TC-016 (composes with `#[test]`), TC-014 (CON-1: no dependency added) | ✅ |
+| FR-004 emission mode | AC-1..7; CON-1..3 | TC-017 (inert default, argument check, `implements` registers nothing), TC-018 (registry entries: ids, symbol, rstest, untagged) | 🚧 |
+| FR-005 emission run | AC-1..9; CON-1..2 | TC-019 (JUnit shape, outcomes, concurrency, rstest), TC-020 (unmatched symbol, single write), TC-021 (cost on quire-rs) | 🚧 |
 | NFR-001 dependency posture | AC-1..3 | TC-014 (`[dependencies]` empty, no parsing crate imported) | ✅ |
 
 ## Test Case Summary
@@ -65,6 +67,11 @@ has no business expressing anyone else's.
 | TC-016 | `#[string_edge]` is importable as `ix_trace_rs::string_edge` and composes with `#[test]` (`string_edge::string_edge_composes_with_the_test_attribute`) | Unit | P1 | FR-004-AC-3 | ✅ |
 | TC-013 | 🚧 The compile-fail suite is non-vacuous: short-circuiting `is_id_shaped` to `return true` fails the cases that pass a malformed id to it. Demonstrated during development, reverted; **no automated trace** — an automated form would mutate the crate's own source and rebuild the proc-macro, which costs more confidence than it adds | Manual | P1 | FR-003-AC-7 | 🚧 |
 | TC-014 | `[dependencies]` is present and empty, and `src/lib.rs` imports no parsing or quoting crate — the cost this bounds is paid by ~150 consuming repositories (`dependency_posture::tc014_*`) | Unit | P0 | NFR-001-AC-1, NFR-001-AC-2, FR-004-CON-1 | ✅ |
+| TC-017 | With `emit` off the expansion equals the input and no `ix-trace-run` item links; with `emit` on a bad argument list gives the same `compile_error!` and `#[implements]` registers nothing | Unit | P0 | FR-004-AC-1, FR-004-AC-5, FR-004-AC-6, FR-004-CON-1, FR-004-CON-3 | 🚧 |
+| TC-018 | With `emit` on, the registry holds one entry per tagged test with ids in order and symbol `tests::name` or `name` for `tests/x.rs`; an rstest registers its source name once; an untagged test is unregistered and still runs | Integration | P0 | FR-004-AC-2, FR-004-AC-3, FR-004-AC-4, FR-004-AC-7 | 🚧 |
+| TC-019 | The runner over a fixture crate writes JUnit where pass, panic and ignored tagged tests carry `trace` with pass, failure and skipped; concurrent tests keep their own ids; rstest cases carry the source name; plain `cargo test` writes no mark | Integration | P0 | FR-005-AC-1, FR-005-AC-2, FR-005-AC-3, FR-005-AC-4, FR-005-AC-5, FR-005-AC-7 | 🚧 |
+| TC-020 | A registered symbol matching no listed test is reported and the runner exits non-zero; one output file is written once and not modified | Integration | P0 | FR-005-AC-6, FR-005-AC-8 | 🚧 |
+| TC-021 | The runner's median wall-clock over the quire-rs suite stays under 5% above stock `cargo test` | Benchmark | P1 | FR-005-AC-9, FR-005-CON-1 | 🚧 |
 
 ## Stakeholder Validation
 

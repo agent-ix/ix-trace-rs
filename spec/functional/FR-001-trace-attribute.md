@@ -47,7 +47,7 @@ static reader can extract without executing anything.
 
 | ID | Constraint | Type | Validation |
 |----|------------|------|------------|
-| FR-001-CON-1 | The expansion SHALL add no runtime code, no static, and no registration side effect — the crate is a marker, and a marker that emits code changes what it annotates | Design | Test |
+| FR-001-CON-1 | While the `emit` feature is not enabled ([FR-004](./FR-004-emission-mode.md)), the expansion SHALL add no runtime code, no static, and no registration side effect — the crate is a marker, and a marker that emits code changes what it annotates | Design | Test |
 
 ## Acceptance Criteria
 
