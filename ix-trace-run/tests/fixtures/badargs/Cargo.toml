@@ -1,0 +1,13 @@
+[package]
+name = "badargs"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+ix-trace-rs = { path = "../../../.." }
+
+[features]
+emit = ["ix-trace-rs/emit"]
