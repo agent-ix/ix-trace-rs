@@ -1,0 +1,11 @@
+[package]
+name = "harness_false"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[[test]]
+name = "custom"
+harness = false

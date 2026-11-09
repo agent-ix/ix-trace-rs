@@ -99,10 +99,13 @@ opt-in output, where libtest's own text results are stable.
   a function body then cannot be reported unmatched. `#[tokio::test]` works in
   either order. For `#[rstest]`, authors SHALL write `#[trace]` above it, so the
   macro registers the source function once with the `parametrized` flag. With
-  `#[rstest]` above `#[trace]`, rstest copies `#[trace]` onto each generated case
-  function and each case registers under its own libtest name; ids still attach
-  to the right case, but the reported symbol is the case's, so E-2 is not met and
-  the order is unsupported. The runner warns about it (FR-006-AC-13).
+  `#[rstest]` above `#[trace]`, rstest (0.26) reads a bare `#[trace]` as its own
+  argument-tracing attribute and removes it: no record exists, the ids are lost,
+  and nothing reports it. A path-qualified `#[ix_trace_rs::trace(...)]` below
+  `#[rstest]` and after its `#[case]` lines is copied onto each case it applies
+  to, and each case registers under its own libtest name, so E-2 is not met.
+  Both spellings of this order are unsupported. The runner warns only about the
+  path-qualified form (FR-006-AC-13).
 - **Feature unification.** Cargo unifies `emit` across every package of one
   build, so a crate that never opted in can see `emit` on. Because the expansion
   needs nothing but `core` and the runner needs nothing linked into the test
@@ -129,7 +132,7 @@ opt-in output, where libtest's own text results are stable.
 | FR-005-AC-1 | With `emit` disabled, expanding `#[trace("FR-001-AC-1")] #[test] fn t() {}` yields exactly the input tokens, and the test binary has no trace section. | Test |
 | FR-005-AC-2 | With `emit` enabled, a tagged `#[test]` carrying two ids in `mod tests` yields one record in the binary, with both ids in declared order, the identifier, `module_path!()` and `file!()`. | Test |
 | FR-005-AC-3 | With `emit` enabled, `#[trace]` on a `struct` yields the item unchanged with no record; on an associated function without a receiver and on a function with no test attribute it yields a record with the `test` flag clear; each crate compiles. | Test |
-| FR-005-AC-4 | With `emit` enabled, a tagged `#[rstest]` function written below `#[trace]` yields one record with the `parametrized` flag; with `#[rstest]` written above `#[trace]` each generated case yields its own record without it. | Test |
+| FR-005-AC-4 | With `emit` enabled, a tagged `#[rstest]` function written below `#[trace]` yields one record with the `parametrized` flag; with `#[ix_trace_rs::trace]` written below `#[rstest]` and after its `#[case]` lines, each generated case yields its own record without it. | Test |
 | FR-005-AC-5 | With `emit` enabled, a tagged `#[tokio::test]` yields one record with `#[trace]` written above it and one with `#[trace]` written below it. | Test |
 | FR-005-AC-6 | With `emit` enabled, a rejected `#[trace]` argument list produces the same `compile_error!` as without `emit` (FR-003). | Test |
 | FR-005-AC-7 | With `emit` enabled, an item carrying only `#[implements(...)]` yields no record. | Test |

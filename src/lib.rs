@@ -62,6 +62,9 @@
 //! the stage that reads `spec/tests.md` and has the real vocabulary in front of
 //! it, not here.
 
+#[cfg(feature = "emit")]
+mod emit;
+
 use proc_macro::{Delimiter, Group, Span, TokenStream, TokenTree};
 
 /// Attach one or more spec trace ids to an item, declaring that it **verifies**
@@ -75,7 +78,7 @@ use proc_macro::{Delimiter, Group, Span, TokenStream, TokenTree};
 /// The expansion is the input item, unchanged.
 #[proc_macro_attribute]
 pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
-    expand("trace", attr, item)
+    expand("trace", attr, item, register)
 }
 
 /// Attach one or more spec ids to an item, declaring that it **implements**
@@ -87,7 +90,7 @@ pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// not be one typo apart.
 #[proc_macro_attribute]
 pub fn implements(attr: TokenStream, item: TokenStream) -> TokenStream {
-    expand("implements", attr, item)
+    expand("implements", attr, item, |_, item| item)
 }
 
 /// Mark a function as a string-dispatch edge: a place where a string is
@@ -112,11 +115,30 @@ pub fn string_edge(attr: TokenStream, item: TokenStream) -> TokenStream {
     out
 }
 
-/// Validate `attr` and return `item` untouched, prepending a spanned
-/// `compile_error!` when the argument list is not well formed.
-fn expand(name: &str, attr: TokenStream, item: TokenStream) -> TokenStream {
+/// With the `emit` feature, embed the trace record of `ids` in `item` (FR-005);
+/// without it the item passes through unchanged.
+#[cfg(feature = "emit")]
+fn register(ids: Vec<String>, item: TokenStream) -> TokenStream {
+    emit::with_record(&ids, item)
+}
+
+/// Without the `emit` feature `#[trace]` is the transparent marker of FR-001.
+#[cfg(not(feature = "emit"))]
+fn register(_ids: Vec<String>, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// Validate `attr` and hand the item to `accept` with the validated ids,
+/// prepending a spanned `compile_error!` to the unchanged item when the
+/// argument list is not well formed.
+fn expand(
+    name: &str,
+    attr: TokenStream,
+    item: TokenStream,
+    accept: fn(Vec<String>, TokenStream) -> TokenStream,
+) -> TokenStream {
     match validate(name, attr) {
-        Ok(()) => item,
+        Ok(ids) => accept(ids, item),
         Err(Rejection { message, span }) => {
             let mut out = compile_error(&message, span);
             out.extend(item);
@@ -134,7 +156,8 @@ struct Rejection {
 
 /// Accept `"lit"` (`,` `"lit"`)* with an optional trailing comma, where every
 /// literal is in id shape, and nothing else.
-fn validate(name: &str, attr: TokenStream) -> Result<(), Rejection> {
+fn validate(name: &str, attr: TokenStream) -> Result<Vec<String>, Rejection> {
+    let mut ids = Vec::new();
     let mut expect_literal = true;
     let mut seen_any = false;
 
@@ -171,6 +194,7 @@ fn validate(name: &str, attr: TokenStream) -> Result<(), Rejection> {
                         span,
                     });
                 }
+                ids.push(id.to_owned());
                 expect_literal = false;
                 seen_any = true;
             }
@@ -180,7 +204,7 @@ fn validate(name: &str, attr: TokenStream) -> Result<(), Rejection> {
             TokenTree::Group(group) if group.delimiter() == Delimiter::None => {
                 // An invisible group wraps a macro-expanded fragment; look inside
                 // rather than reject a legitimate `#[trace($id)]` expansion.
-                validate(name, group.stream())?;
+                ids.extend(validate(name, group.stream())?);
                 expect_literal = false;
                 seen_any = true;
             }
@@ -203,7 +227,7 @@ fn validate(name: &str, attr: TokenStream) -> Result<(), Rejection> {
             span: Span::call_site(),
         });
     }
-    Ok(())
+    Ok(ids)
 }
 
 /// A kind that begins with an ASCII letter, then any mix of letters, digits,

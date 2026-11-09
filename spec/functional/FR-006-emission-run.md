@@ -30,8 +30,23 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   `--list` output is therefore identical to a build without `emit`. A binary with
   no trace section (an unsupported target, or no tagged test) yields a stderr
   notice naming it and no marks, and does not by itself change the exit status.
-- **Execution.** The runner SHALL run each test binary once, as stock `cargo test`
-  does, in the default parallel mode and without `--nocapture`, passing libtest's
+- **Execution.** The runner SHALL run each test binary once, in the default
+  parallel mode and without `--nocapture`. The binary it executes SHALL be the file
+  it read the records from, taken from the build messages of the one
+  `cargo test --no-run`; it SHALL NOT invoke `cargo test` again, because a second
+  invocation can unify features differently and build another binary. It SHALL give
+  the process the environment `cargo test` gives it, rebuilt from the build messages
+  and `cargo metadata`: the package root as working directory, `CARGO`,
+  `CARGO_MANIFEST_DIR`, the `CARGO_PKG_*` variables of the owning package, and a
+  dynamic library search path (`LD_LIBRARY_PATH`, `DYLD_FALLBACK_LIBRARY_PATH` or
+  `PATH`) made of the binary's `deps` directory, the compiler's library directory and
+  the native library directories of the build scripts. A configured target runner
+  (`target.<triple>.runner` in cargo config, a `CARGO_TARGET_<TRIPLE>_RUNNER`
+  variable or a `--config` with a runner) is unsupported and the runner SHALL stop
+  with an error that says so. The rebuilt environment does not include the values
+  build scripts export with `cargo:rustc-env`, `OUT_DIR` for a package with a build
+  script, or the `[env]` entries of cargo config; a test that reads them at run time
+  sees them unset. It passes libtest's
   `--logfile <temporary path>`. Outcomes SHALL come from that log file, which
   the harness writes and test output cannot reach, and never from stdout. Its
   line forms are `ok <name>`, `failed <name>`, `ignored <name>` and
@@ -41,6 +56,10 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   (a panic is `failed`, E-4) and `ignored` is `skip`. The logfile option is
   accepted by stable libtest and marked deprecated in its help; its removal is
   a reason to revisit this by amendment.
+- **Unlistable binaries.** A target with `harness = false` SHALL be run as is,
+  without libtest flags, and yields no cases (FR-006-AC-20). A libtest binary whose
+  `--list` fails, and a test argument that `--list` rejects, SHALL be reported on
+  stderr and the runner SHALL exit non-zero (FR-006-AC-21).
 - **Log lines.** Every listed test SHALL have exactly one log line, whatever the
   exit status. A duplicate line makes the test `fail` and the runner exit
   non-zero, never `pass`. A test with no log line takes the abnormal-exit path
@@ -56,9 +75,10 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   the runner exits.
 - **Abnormal exit.** When a binary exits abnormally (a signal, `abort`, a
   process exit inside a test) or any listed test has no log line, the runner SHALL run every listed test that has no
-  log line alone in a fresh process with `--exact`; exit status 0 is `pass` and
-  any other status or a signal is `fail`, so no listed test is absent from the
-  result (E-4).
+  log line alone in a fresh process with `--exact`; the outcome is read from that
+  run's log file: `ok` is `pass` and `ignored` is `skip`; a `failed` line, no log
+  line, any non-zero status or a signal is `fail`, and a run that exits 0 with no
+  log line is reported on stderr. No listed test is absent from the result (E-4).
 - **Matching.** A record belongs to a listed test when the record's libtest name
   (`module_path!()` without its first segment, joined by `::` to the identifier)
   equals the listed name exactly, whether or not the record's `test` flag is set,
@@ -68,8 +88,8 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   A record with the `parametrized` flag also
   belongs to every listed name that is that libtest name followed by `::` and one
   or more further segments. No other test receives a record's ids (E-3).
-- **Reported symbol.** The runner SHALL report, as `name` and `classname`, the
-  file-relative chain the extractor reports: the libtest name with the module
+- **Reported symbol.** For each case that a record belongs to, the runner SHALL
+  report, as `name` and `classname`, the file-relative chain the extractor reports: the libtest name with the module
   prefix of the source file removed. The prefix of a file is derived from its
   path relative to the directory of its target's root file (as `cargo` reports
   `src_path`): the root file itself, `lib.rs`, `main.rs` and `tests/x.rs` have an
@@ -79,7 +99,9 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   file-relative name. When a libtest name does not begin with its file's derived
   prefix (for example under `#[path]`) the runner SHALL treat the record as
   unmatched (below) rather than guess. A record with the `test` flag clear that
-  matches no listed test is ignored without a report.
+  matches no listed test is ignored without a report. A case that no record
+  belongs to is reported under its libtest name, with no `file` and no `trace`
+  property; it carries no ids, so it needs no join to a declared symbol.
 - **File attribute.** Each `<testcase>` SHALL carry `file`, the record's `file!()`
   value normalized to a repo-relative, `/`-separated path, and one
   `<property name="trace" value="ID1,ID2"/>` child when a record belongs to it.
@@ -91,9 +113,11 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   finishes, and SHALL rewrite nothing afterward (E-8). The runner creates no other file that outlives the run.
 - **Misuse warning.** The runner SHALL warn on stderr, without failing, when two
   or more records of one file carry identical ids and identifiers beginning
-  `case_`, the shape of `#[rstest]` written above `#[trace]` (FR-005). The warning
-  is best effort: rstest `#[values]` matrices generate functions named after their
-  arguments rather than `case_`, and those misuse cases get no warning.
+  `case_`, the shape of a path-qualified `#[ix_trace_rs::trace]` below `#[rstest]`
+  (FR-005). The warning is best effort: rstest `#[values]` matrices generate
+  functions named after their arguments rather than `case_`, and those misuse
+  cases get no warning. A bare `#[trace]` below `#[rstest]` leaves no record, so it
+  cannot be warned about.
 - **Plain runs.** Running the same test binaries with plain `cargo test` is
   unchanged.
 
@@ -118,14 +142,18 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
 | FR-006-AC-8 | When a test binary aborts inside one test, every listed test without a log line is re-run alone and appears in the result with an outcome; none is absent. | Test |
 | FR-006-AC-9 | A record that belongs to no listed test, including a `#[test]` declared inside a function body and a test whose libtest name does not begin with its file's derived prefix, is reported on stderr and makes the runner exit non-zero. | Test |
 | FR-006-AC-10 | A tagged `#[tokio::test]` yields one case with its ids and its outcome. | Test |
-| FR-006-AC-11 | A run leaves exactly one output file, which is not modified after it is first written, and its temporary log file is gone; plain `cargo test` over the same fixture writes no `trace` property. | Test |
+| FR-006-AC-11 | A run leaves exactly one output file, which is not modified after it is first written, and its temporary log file is gone. | Test |
 | FR-006-AC-13 | Two records in one file with identical ids and identifiers `case_1` and `case_2` make the runner print a warning on stderr and not change its exit status; the warning is not required for `#[values]` matrices. | Test |
 | FR-006-AC-14 | A test that writes `test other ... ok` or `test self ... FAILED` to stdout directly does not change any case's outcome. | Test |
 | FR-006-AC-15 | A listed test with two log lines yields a failing case and a non-zero runner exit; an `ignored: <reason> <name>` line yields a skipped case. | Test |
-| FR-006-AC-16 | A test that calls `process::exit(0)` has no log line, is re-run alone, and appears in the result with the outcome of that run, never as an unreported pass. | Test |
+| FR-006-AC-16 | A test that calls `process::exit(0)` has no log line, is re-run alone, and appears in the result as `fail` with a stderr notice, never as `pass`. | Test |
 | FR-006-AC-17 | A test marked `#[ignore = "line one\nline two"]` yields one skipped case under its own name, and the tests listed after it keep their own outcomes. | Test |
 | FR-006-AC-18 | A binary with no trace section yields a stderr notice and no marks, and the run's exit status is that of its tests. | Test |
 | FR-006-AC-19 | A method `#[trace("X")] fn check` without a receiver and a free `#[test] fn check` in one module give two records with one libtest name: neither test receives `X`, and the ambiguity is reported with a non-zero exit. | Test |
+| FR-006-AC-20 | A target declared `harness = false` is executed once with no libtest flag, produces no case, and its exit status is the run's contribution for it. | Test |
+| FR-006-AC-21 | A test argument that the binary's `--list` rejects produces a stderr error naming the argument and a non-zero exit, and no test of that binary is silently skipped. | Test |
+| FR-006-AC-22 | The executed test binary path equals the path the records were read from, including in a workspace where feature unification differs between invocations, and a binary built with `-C prefer-dynamic` finds its libraries. | Test |
+| FR-006-AC-23 | With a target runner configured, the runner stops with an error stating that target runners are unsupported and writes no result file. | Test |
 | FR-006-AC-12 | Over the quire-rs suite, with test binaries prebuilt by one `cargo test --no-run` (compile time excluded), a warm cache, the same `--test-threads` value for both modes, and the quire-rs revision recorded in the benchmark output, the median of at least five alternating runs of the runner is under 105% of the median of the same runs of `cargo test --tests` (stock without doctests, which the runner does not run). | Test |
 
 ## Dependencies

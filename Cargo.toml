@@ -18,6 +18,15 @@ proc-macro = true
 [dev-dependencies]
 trybuild = "1.0.111"
 
+[features]
+# Embed a trace record per `#[trace]` fn item for the `ix-trace-run` runner.
+# Off by default; the expansion is then the unchanged item (FR-005).
+emit = []
+
+[workspace]
+members = ["ix-trace-run"]
+default-members = [".", "ix-trace-run"]
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
