@@ -149,7 +149,7 @@ fn parse_one(body: &[u8]) -> Option<Record> {
         ids: ids.split(',').map(str::to_owned).collect(),
         ident: ident.to_owned(),
         module_path: module_path.to_owned(),
-        file: file.to_owned(),
+        file: file.replace('\\', "/"),
         test: flags.starts_with('t'),
         parametrized: flags.ends_with('p'),
     })
