@@ -234,6 +234,7 @@ mod tests {
         assert!(matching.warnings[0].contains("case_1, case_2"));
     }
 
+    #[trace("FR-006-AC-3")]
     #[test]
     fn the_symbol_drops_the_module_prefix_of_the_file() {
         let nested = record(&["TC-2"], "t", "c::foo::bar::tests", "src/foo/bar.rs");
@@ -248,6 +249,7 @@ mod tests {
         assert_eq!(matching.marks["foo::tests::u"].symbol, "tests::u");
     }
 
+    #[trace("FR-006-AC-9")]
     #[test]
     fn a_name_outside_its_files_prefix_is_unmatched() {
         let stray = record(&["TC-4"], "t", "c::elsewhere", "src/foo/bar.rs");
@@ -256,6 +258,7 @@ mod tests {
         assert_eq!(matching.unmatched.len(), 1);
     }
 
+    #[trace("FR-006-AC-19")]
     #[test]
     fn two_records_with_one_libtest_name_mark_nothing() {
         let a = record(&["X-1"], "check", "c", "src/lib.rs");
@@ -266,6 +269,7 @@ mod tests {
         assert!(matching.unmatched.is_empty());
     }
 
+    #[trace("FR-006-AC-7")]
     #[test]
     fn a_parametrized_record_marks_its_cases_and_a_plain_one_marks_no_child() {
         let mut param = record(&["TC-6"], "p", "c", "src/lib.rs");

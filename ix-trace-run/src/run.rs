@@ -1,7 +1,6 @@
 //! Running the suite and writing the result file (FR-006).
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitStatus, Stdio};
 
 use crate::cargo::{self, TestBinary};
 use crate::junit::{self, Case, Suite};
@@ -26,7 +25,7 @@ impl Options {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Usage`] when `--output` has no value.
+    /// Returns a usage [`Error`] when `--output` has no value.
     pub fn parse(args: &[String]) -> Result<Self, Error> {
         let mut output = PathBuf::from("junit.xml");
         let mut cargo_args = Vec::new();
@@ -38,7 +37,7 @@ impl Options {
             } else if arg == "--output" || arg == "-o" {
                 let value = iter
                     .next()
-                    .ok_or_else(|| Error::Usage(format!("{arg} needs a path")))?;
+                    .ok_or_else(|| Error::usage(format!("{arg} needs a path")))?;
                 output = PathBuf::from(value);
             } else if let Some(value) = arg.strip_prefix("--output=") {
                 output = PathBuf::from(value);
@@ -72,16 +71,15 @@ pub fn run(options: &Options) -> Result<bool, Error> {
             workspace_root: workspace_root.clone(),
             root_file: binary.root_file.clone(),
         };
-        let (suite, binary_clean) = run_binary(binary, &layout, &options.test_args)?;
+        let (suite, binary_clean) = run_binary(binary, &layout, options)?;
         clean &= binary_clean;
         suites.extend(suite);
     }
     clean &= suites
         .iter()
         .all(|suite| suite.cases.iter().all(|c| c.outcome != Outcome::Fail));
-    std::fs::write(&options.output, junit::render(&suites)).map_err(|source| Error::Io {
-        context: format!("cannot write {}", options.output.display()),
-        source,
+    std::fs::write(&options.output, junit::render(&suites)).map_err(|source| {
+        Error::io(format!("cannot write {}", options.output.display()), source)
     })?;
     Ok(clean)
 }
@@ -95,34 +93,53 @@ fn notice(message: &str) {
 fn run_binary(
     binary: &TestBinary,
     layout: &Layout,
-    test_args: &[String],
+    options: &Options,
 ) -> Result<(Option<Suite>, bool), Error> {
     let name = binary.executable.display();
-    let records = load_records(binary);
-
-    let Some(all) = list(binary, &[])? else {
-        // Not a libtest binary: run it as cargo would and keep its status.
-        let status = command(binary)
-            .args(test_args)
+    let test_args: Vec<&str> = options.test_args.iter().map(String::as_str).collect();
+    if binary.harness_disabled() {
+        // Its `main` is not libtest: running it with `--list` would run it.
+        notice(&format!(
+            "notice: {name} sets harness = false; it is run as is and has no cases"
+        ));
+        let status = binary
+            .command(&options.cargo_args, &test_args)
             .status()
-            .map_err(|source| Error::Io {
-                context: format!("cannot run {name}"),
-                source,
-            })?;
+            .map_err(|source| Error::io(format!("cannot run {name}"), source))?;
         return Ok((None, status.success()));
+    }
+
+    let records = load_records(binary);
+    let all = match list(binary, &options.cargo_args, &[]) {
+        Ok(all) => all,
+        Err(detail) => {
+            notice(&format!(
+                "error: {name} cannot list its tests, so none of them ran: {detail}"
+            ));
+            return Ok((None, false));
+        }
     };
     let selected = if test_args.is_empty() {
         all.clone()
     } else {
-        list(binary, test_args)?.unwrap_or_default()
+        match list(binary, &options.cargo_args, &test_args) {
+            Ok(selected) => selected,
+            Err(detail) => {
+                notice(&format!(
+                    "error: {name} rejected the test arguments `{}` given with `--list`: {detail}",
+                    test_args.join(" ")
+                ));
+                return Ok((None, false));
+            }
+        }
     };
 
     let mut clean = true;
-    let mut cases_by_name = Vec::new();
+    let mut outcomes = Vec::new();
     if !selected.is_empty() {
-        let (outcomes, ok) = execute(binary, &selected, test_args)?;
+        let (found, ok) = execute(binary, &selected, options)?;
         clean &= ok;
-        cases_by_name = outcomes;
+        outcomes = found;
     }
 
     let matching = match_records(&records, &all, layout);
@@ -145,7 +162,7 @@ fn run_binary(
         ));
     }
 
-    let cases = cases_by_name
+    let cases = outcomes
         .into_iter()
         .map(|(test, outcome, failure)| match matching.marks.get(&test) {
             Some(mark) => Case {
@@ -192,7 +209,16 @@ fn describe(records: &[Record]) -> String {
 fn load_records(binary: &TestBinary) -> Vec<Record> {
     let name = binary.executable.display();
     match registry::read_records(&binary.executable) {
-        Ok(Some(records)) => records,
+        Ok(Some(registry)) => {
+            if registry.malformed > 0 {
+                notice(&format!(
+                    "warning: {name} has {} trace record(s) that could not be read (a format \
+                     version mismatch between ix-trace-rs and ix-trace-run?); their tests carry no marks",
+                    registry.malformed
+                ));
+            }
+            registry.records
+        }
         Ok(None) => {
             notice(&format!(
                 "notice: {name} has no trace section; its cases carry no marks"
@@ -206,35 +232,24 @@ fn load_records(binary: &TestBinary) -> Vec<Record> {
     }
 }
 
-fn command(binary: &TestBinary) -> Command {
-    let mut command = Command::new(&binary.executable);
-    command
-        .current_dir(&binary.package_dir)
-        .env("CARGO_MANIFEST_DIR", &binary.package_dir);
-    command
-}
-
-/// The names `--list` prints, or `None` when the binary is not a libtest one.
-fn list(binary: &TestBinary, extra: &[String]) -> Result<Option<Vec<String>>, Error> {
-    let output = command(binary)
-        .arg("--list")
-        .args(extra)
-        .stderr(Stdio::inherit())
+/// The names `--list` prints, or the reason it failed.
+fn list(binary: &TestBinary, cargo_args: &[String], extra: &[&str]) -> Result<Vec<String>, String> {
+    let mut args = vec!["--list"];
+    args.extend_from_slice(extra);
+    let output = binary
+        .command(cargo_args, &args)
         .output()
-        .map_err(|source| Error::Io {
-            context: format!("cannot run {}", binary.executable.display()),
-            source,
-        })?;
+        .map_err(|err| format!("cannot start cargo: {err}"))?;
     if !output.status.success() {
-        return Ok(None);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("{}: {}", output.status, stderr.trim()));
     }
     let text = String::from_utf8_lossy(&output.stdout);
-    Ok(Some(
-        text.lines()
-            .filter_map(|line| line.strip_suffix(": test"))
-            .map(str::to_owned)
-            .collect(),
-    ))
+    Ok(text
+        .lines()
+        .filter_map(|line| line.strip_suffix(": test"))
+        .map(str::to_owned)
+        .collect())
 }
 
 type Outcomes = Vec<(String, Outcome, Option<String>)>;
@@ -244,101 +259,106 @@ type Outcomes = Vec<(String, Outcome, Option<String>)>;
 fn execute(
     binary: &TestBinary,
     selected: &[String],
-    test_args: &[String],
+    options: &Options,
 ) -> Result<(Outcomes, bool), Error> {
-    let io = |context: &str| {
-        let context = format!("{context} {}", binary.executable.display());
-        move |source| Error::Io { context, source }
-    };
-    let dir = tempfile::tempdir().map_err(io("cannot create a log directory for"))?;
+    let name = binary.executable.display();
+    let dir = tempfile::tempdir()
+        .map_err(|source| Error::io(format!("cannot create a log directory for {name}"), source))?;
     let log_path = dir.path().join("libtest.log");
-    let status = command(binary)
-        .arg("--logfile")
-        .arg(&log_path)
-        .args(test_args)
+    let log_arg = log_path.to_string_lossy().into_owned();
+    let mut harness_args = vec!["--logfile", log_arg.as_str()];
+    harness_args.extend(options.test_args.iter().map(String::as_str));
+    let status = binary
+        .command(&options.cargo_args, &harness_args)
         .status()
-        .map_err(io("cannot run"))?;
+        .map_err(|source| Error::io(format!("cannot run {name}"), source))?;
     let text = std::fs::read(&log_path).map(|b| String::from_utf8_lossy(&b).into_owned());
     let log = logfile::parse(&text.unwrap_or_default(), selected);
 
     let mut clean = true;
-    let missing: Vec<&String> = selected
-        .iter()
-        .filter(|name| !log.outcomes.contains_key(*name))
-        .collect();
+    let any_missing = selected.iter().any(|name| !log.outcomes.contains_key(name));
     if status.success() && log.saw_failed {
         clean = false;
         notice(&format!(
-            "{} exited 0 but its log has a failed test; the log's outcomes are recorded",
-            binary.executable.display()
+            "{name} exited 0 but its log has a failed test; the log's outcomes are recorded"
         ));
-    } else if !status.success()
-        && !log.saw_failed
-        && missing.is_empty()
-        && log.duplicates.is_empty()
-    {
+    } else if !status.success() && !log.saw_failed && !any_missing && log.duplicates.is_empty() {
         clean = false;
         notice(&format!(
-            "{} exited with {status} but its log has no failed test; the log's outcomes are recorded",
-            binary.executable.display()
+            "{name} exited with {status} but its log has no failed test; the log's outcomes are recorded"
         ));
     }
 
-    let rerun_args: Vec<&String> = test_args
+    let rerun_flags: Vec<&str> = options
+        .test_args
         .iter()
-        .filter(|arg| matches!(arg.as_str(), "--include-ignored" | "--ignored"))
+        .map(String::as_str)
+        .filter(|arg| matches!(*arg, "--include-ignored" | "--ignored"))
         .collect();
     let mut outcomes: Outcomes = Vec::with_capacity(selected.len());
-    for name in selected {
-        if log.duplicates.contains(name) {
+    for test in selected {
+        if log.duplicates.contains(test) {
             clean = false;
+            notice(&format!(
+                "{name}: `{test}` has more than one log line; recorded as failed"
+            ));
             outcomes.push((
-                name.clone(),
+                test.clone(),
                 Outcome::Fail,
                 Some("duplicate log line".to_owned()),
             ));
-        } else if let Some(&outcome) = log.outcomes.get(name) {
-            outcomes.push((name.clone(), outcome, None));
+        } else if let Some(&outcome) = log.outcomes.get(test) {
+            outcomes.push((test.clone(), outcome, None));
         } else {
-            let (outcome, message) = rerun(binary, name, &rerun_args, dir.path())?;
-            outcomes.push((name.clone(), outcome, message));
+            let (outcome, message) =
+                rerun(binary, test, &options.cargo_args, &rerun_flags, dir.path())?;
+            outcomes.push((test.clone(), outcome, message));
         }
     }
     Ok((outcomes, clean))
 }
 
-/// Run one test alone in a fresh process.
+/// Run one test alone in a fresh process. Its outcome is what that run's log
+/// says; a run that writes no log line for the test, exits non-zero or dies is
+/// a failure, never a pass.
 fn rerun(
     binary: &TestBinary,
-    name: &str,
-    extra: &[&String],
+    test: &str,
+    cargo_args: &[String],
+    flags: &[&str],
     dir: &Path,
 ) -> Result<(Outcome, Option<String>), Error> {
     let log_path = dir.join("rerun.log");
-    let status: ExitStatus = command(binary)
-        .args(["--exact", name, "--logfile"])
-        .arg(&log_path)
-        .args(extra)
+    // A stale file from an earlier rerun must not answer for this one.
+    let _ = std::fs::remove_file(&log_path);
+    let log_arg = log_path.to_string_lossy().into_owned();
+    let mut args = vec!["--exact", test, "--logfile", log_arg.as_str()];
+    args.extend_from_slice(flags);
+    let status = binary
+        .command(cargo_args, &args)
         .status()
-        .map_err(|source| Error::Io {
-            context: format!("cannot run {}", binary.executable.display()),
-            source,
+        .map_err(|source| {
+            Error::io(
+                format!("cannot run {}", binary.executable.display()),
+                source,
+            )
         })?;
+    let text = std::fs::read(&log_path).map(|b| String::from_utf8_lossy(&b).into_owned());
+    let log = logfile::parse(&text.unwrap_or_default(), &[test.to_owned()]);
     if !status.success() {
         return Ok((
             Outcome::Fail,
             Some(format!("ran alone after an abnormal exit: {status}")),
         ));
     }
-    let text = std::fs::read(&log_path).map(|b| String::from_utf8_lossy(&b).into_owned());
-    let log = logfile::parse(&text.unwrap_or_default(), &[name.to_owned()]);
-    let outcome = log.outcomes.get(name).copied().unwrap_or(Outcome::Pass);
-    Ok((
-        if outcome == Outcome::Skip {
-            Outcome::Skip
-        } else {
-            Outcome::Pass
-        },
-        None,
-    ))
+    match log.outcomes.get(test) {
+        Some(&outcome) if !log.duplicates.contains(test) => Ok((outcome, None)),
+        _ => {
+            notice(&format!(
+                "`{test}` exited 0 when run alone but wrote no log line, so it did not finish \
+                 normally; recorded as failed"
+            ));
+            Ok((Outcome::Fail, Some("no log line when run alone".to_owned())))
+        }
+    }
 }

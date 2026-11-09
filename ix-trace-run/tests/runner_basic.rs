@@ -144,7 +144,7 @@ fn a_binary_without_a_trace_section_gets_a_notice_and_the_tests_exit_status() {
     assert!(cases(&run.xml).len() > 5);
 }
 
-#[trace("TC-021", "FR-006-AC-11")]
+#[trace("FR-006-AC-11")]
 #[test]
 fn tc021_a_clean_run_writes_one_file_and_leaves_no_log() {
     let tmp = tempfile::tempdir().expect("temp dir");

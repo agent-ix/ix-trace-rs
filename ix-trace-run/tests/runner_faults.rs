@@ -31,14 +31,21 @@ fn abnormal() -> &'static Run {
 
 #[trace("FR-006-AC-16")]
 #[test]
-fn a_test_that_exits_zero_is_rerun_alone_and_never_an_unreported_pass() {
+fn a_test_that_exits_zero_is_rerun_alone_and_recorded_failed_never_passed() {
     let run = abnormal();
     assert_eq!(cases(&run.xml).len(), 4, "{}", run.xml);
     let c = case(&run.xml, "exits_zero");
     assert!(
-        c.contains("value=\"TC-301\"") && !c.contains("<failure"),
+        c.contains("value=\"TC-301\"") && c.contains("<failure"),
         "{c}"
     );
+    assert!(
+        run.stderr
+            .contains("exited 0 when run alone but wrote no log line"),
+        "{}",
+        run.stderr
+    );
+    assert!(!case(&run.xml, "survivor_a").contains("<failure"));
 }
 
 fn unmatched() -> &'static Run {
@@ -108,4 +115,75 @@ fn a_tokio_test_yields_one_case_with_its_ids_in_either_order() {
             "{c}"
         );
     }
+}
+
+#[trace("FR-006-AC-15")]
+#[test]
+fn a_second_log_line_makes_a_failing_case_and_a_non_zero_exit() {
+    let run = runner("dup_log", &["--features", "emit"], &["--test-threads=1"]);
+    let c = case(&run.xml, "writes_its_line_twice");
+    assert!(
+        c.contains("<failure") && c.contains("value=\"TC-600\""),
+        "{c}"
+    );
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+}
+
+#[trace("FR-006-AC-13")]
+#[test]
+fn the_rstest_misuse_warning_does_not_change_the_exit_status() {
+    let run = runner("misuse", &["--features", "emit"], &[]);
+    assert!(
+        run.stderr.contains("warning") && run.stderr.contains("case_1"),
+        "{}",
+        run.stderr
+    );
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+}
+
+#[test]
+fn a_harness_false_target_is_run_as_is_and_never_given_list() {
+    let run = runner("harness_false", &[], &[]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert!(run.stderr.contains("harness = false"), "{}", run.stderr);
+    assert!(case(&run.xml, "ordinary").contains("name=\"ordinary\""));
+}
+
+#[test]
+fn a_test_argument_that_list_rejects_is_a_loud_error() {
+    let run = runner("harness_false", &[], &["--no-such-flag"]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert!(
+        run.stderr.contains("rejected the test arguments"),
+        "{}",
+        run.stderr
+    );
+}
+
+#[test]
+fn test_processes_get_cargos_dylib_search_path() {
+    // With `prefer-dynamic` the binary needs libstd from the sysroot, which
+    // only the environment `cargo test` sets up can find.
+    let dir = tempfile::tempdir().expect("temp dir");
+    let output = dir.path().join("result.xml");
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_ix-trace-run"))
+        .arg("--output")
+        .arg(&output)
+        .arg("--manifest-path")
+        .arg(common::manifest("harness_false"))
+        .env(
+            "CARGO_TARGET_DIR",
+            common::target_dir().with_extension("dynamic"),
+        )
+        .env("RUSTFLAGS", "-C prefer-dynamic")
+        .output()
+        .expect("runner starts");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let xml = std::fs::read_to_string(&output).expect("result written");
+    assert!(case(&xml, "ordinary").contains("name=\"ordinary\""));
 }

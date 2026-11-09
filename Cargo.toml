@@ -25,6 +25,7 @@ emit = []
 
 [workspace]
 members = ["ix-trace-run"]
+default-members = [".", "ix-trace-run"]
 
 [profile.release]
 lto = "thin"

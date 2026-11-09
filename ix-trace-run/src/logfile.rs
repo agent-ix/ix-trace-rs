@@ -119,6 +119,7 @@ mod tests {
         assert!(log.saw_failed);
     }
 
+    #[trace("FR-006-AC-17")]
     #[test]
     fn a_reason_with_a_newline_is_one_skipped_test_and_later_lines_keep_their_outcomes() {
         let listed = names(&["first", "second", "third"]);
@@ -132,6 +133,7 @@ mod tests {
         assert_eq!(log.outcomes.len(), 3);
     }
 
+    #[trace("FR-006-AC-14")]
     #[test]
     fn a_line_naming_no_listed_test_is_not_read() {
         let listed = names(&["real"]);

@@ -8,6 +8,8 @@ use object::{Object, ObjectSection};
 
 /// Start of a record; matches `ix-trace-rs`'s emitter.
 const START: &[u8] = b"\x02IXTR1";
+/// The record start without its format version.
+const FAMILY: &[u8] = b"\x02IXTR";
 /// Field separator.
 const SEP: char = '\u{1f}';
 /// End of a record.
@@ -62,6 +64,16 @@ impl std::fmt::Display for RegistryError {
 
 impl std::error::Error for RegistryError {}
 
+/// The records of a binary and how many entries could not be read.
+#[derive(Debug, Default)]
+pub struct Registry {
+    /// The records that parsed.
+    pub records: Vec<Record>,
+    /// Entries that carry the record start but did not parse: a wrong field
+    /// count, bad UTF-8, a missing end, or another format version.
+    pub malformed: usize,
+}
+
 /// Read every record of the trace section of the binary at `path`.
 ///
 /// `Ok(None)` means the binary has no trace section.
@@ -70,39 +82,50 @@ impl std::error::Error for RegistryError {}
 ///
 /// Returns [`RegistryError`] when the file cannot be read or is not an object
 /// file.
-pub fn read_records(path: &Path) -> Result<Option<Vec<Record>>, RegistryError> {
+pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
     let data = std::fs::read(path).map_err(RegistryError::Io)?;
     let file = object::File::parse(&*data).map_err(RegistryError::Format)?;
-    let mut found = None;
+    let mut found: Option<Registry> = None;
     for section in file.sections() {
         let Ok(name) = section.name() else { continue };
         if matches!(name, "ixtrace" | "__ixtrace" | ".ixtrace") {
             let bytes = section.data().map_err(RegistryError::Format)?;
-            found
-                .get_or_insert_with(Vec::new)
-                .extend(parse_records(bytes));
+            let parsed = parse_records(bytes);
+            let registry = found.get_or_insert_with(Registry::default);
+            registry.records.extend(parsed.records);
+            registry.malformed += parsed.malformed;
         }
     }
     Ok(found)
 }
 
 /// Parse the records out of the bytes of a trace section. Bytes between
-/// records, such as padding, are skipped, and a malformed record is dropped.
+/// records, such as padding, are skipped. An entry that does not parse is
+/// counted in [`Registry::malformed`], never dropped silently.
 #[must_use]
-pub fn parse_records(bytes: &[u8]) -> Vec<Record> {
-    let mut records = Vec::new();
+pub fn parse_records(bytes: &[u8]) -> Registry {
+    let mut registry = Registry::default();
     let mut rest = bytes;
-    while let Some(start) = find(rest, START) {
-        let body = &rest[start + START.len()..];
+    while let Some(start) = find(rest, FAMILY) {
+        let after = &rest[start + FAMILY.len()..];
+        if !after.starts_with(&START[FAMILY.len()..]) {
+            // The same family under another format version.
+            registry.malformed += 1;
+            rest = after;
+            continue;
+        }
+        let body = &after[START.len() - FAMILY.len()..];
         let Some(end) = body.iter().position(|&b| b == END) else {
+            registry.malformed += 1;
             break;
         };
-        if let Some(record) = parse_one(&body[..end]) {
-            records.push(record);
+        match parse_one(&body[..end]) {
+            Some(record) => registry.records.push(record),
+            None => registry.malformed += 1,
         }
         rest = &body[end + 1..];
     }
-    records
+    registry
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -134,16 +157,22 @@ fn parse_one(body: &[u8]) -> Option<Record> {
 
 #[cfg(test)]
 mod tests {
+    use ix_trace_rs::trace;
+
     use super::parse_records;
 
+    #[trace("FR-006-AC-1")]
     #[test]
-    fn records_parse_between_padding_and_a_malformed_one_is_dropped() {
+    fn records_parse_between_padding_and_a_malformed_one_is_counted() {
         let mut bytes = b"\0\0".to_vec();
         bytes.extend(b"\x02IXTR1t-\x1fTC-1,FR-1-AC-1\x1ft\x1fc::tests\x1fsrc/lib.rs\x03");
         bytes.extend(b"\x02IXTR1garbage\x03\0");
+        bytes.extend(b"\x02IXTR2t-\x1fTC-9\x1fv\x1fc\x1fsrc/lib.rs\x03");
         bytes.extend(b"\x02IXTR1-p\x1fTC-2\x1fu\x1fc\x1fsrc/lib.rs\x03");
-        let records = parse_records(&bytes);
+        let parsed = parse_records(&bytes);
+        let records = parsed.records;
         assert_eq!(records.len(), 2);
+        assert_eq!(parsed.malformed, 2);
         assert_eq!(records[0].ids, ["TC-1", "FR-1-AC-1"]);
         assert!(records[0].test && !records[0].parametrized);
         assert_eq!(records[0].libtest_name(), "tests::t");

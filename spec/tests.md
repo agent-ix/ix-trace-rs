@@ -27,8 +27,10 @@ has no business expressing anyone else's.
 
 1. **Coverage Rule** — every acceptance criterion has at least one trace, or an
    explicit row saying why it has none.
-2. **One id, one symbol** — no trace id appears on two different tests. A
-   collision is invisible to `quire coverage`: the row binds, the count is
+2. **One id, one symbol** — no test-case (`TC`/`IT`) id appears on two different
+   tests, and an acceptance-criterion id appears on a second test only when that
+   test exercises it independently (a unit test beside the end-to-end one). A
+   collision of test-case ids is invisible to `quire coverage`: the row binds, the count is
    right, and deleting either test leaves the row green on the strength of the
    other (`agent-ix/quire-cli#45`).
 3. **Rejection rule** — every rejection branch of the argument grammar has a
@@ -68,10 +70,10 @@ has no business expressing anyone else's.
 | TC-013 | 🚧 The compile-fail suite is non-vacuous: short-circuiting `is_id_shaped` to `return true` fails the cases that pass a malformed id to it. Demonstrated during development, reverted; **no automated trace** — an automated form would mutate the crate's own source and rebuild the proc-macro, which costs more confidence than it adds | Manual | P1 | FR-003-AC-7 | 🚧 |
 | TC-014 | `[dependencies]` is present and empty, and `src/lib.rs` imports no parsing or quoting crate — the cost this bounds is paid by ~150 consuming repositories (`dependency_posture::tc014_*`) | Unit | P0 | NFR-001-AC-1, NFR-001-AC-2, FR-004-CON-1 | ✅ |
 | TC-017 | With `emit` off the expansion equals the input and the binary has no trace section; with `emit` on a bad argument list gives the same `compile_error!` and `#[implements]` yields no record | Unit | P0 | FR-005-AC-1, FR-005-AC-6, FR-005-AC-7, FR-005-CON-1, FR-005-CON-3 | ✅ |
-| TC-018 | With `emit` on, a tagged test yields one record with ids in order, identifier, module path and file; a struct yields none, a method with a `self` receiver yields none, an associated fn without a receiver and a non-test fn yield an unflagged record, and all compile; `#[test]` written above `#[trace]` still gets its ids; rstest below and above `#[trace]`, `#[tokio::test]` in both orders, and an untagged test behave as stated | Integration | P0 | FR-005-AC-2, FR-005-AC-3, FR-005-AC-4, FR-005-AC-5, FR-005-AC-8, FR-005-AC-11 | 🚧 |
+| TC-018 | With `emit` on, a tagged test yields one record with ids in order, identifier, module path and file; a struct yields none, a method with a `self` receiver yields none, an associated fn without a receiver and a non-test fn yield an unflagged record, and all compile; `#[test]` written above `#[trace]` still gets its ids; rstest below `#[trace]` (one parametrized record) and a path-qualified `#[ix_trace_rs::trace]` after the cases (one record per case), `#[tokio::test]` in both orders, and an untagged test behave as stated | Integration | P0 | FR-005-AC-2, FR-005-AC-3, FR-005-AC-4, FR-005-AC-5, FR-005-AC-8, FR-005-AC-11 | ✅ |
 | TC-019 | With `emit` on for one package, a second package without `ix-trace-run` still compiles and passes; every tagged test of a fixture keeps its record through linking on each supported platform, and a `wasm` crate builds with no section | Integration | P0 | FR-005-AC-9, FR-005-AC-10, FR-005-AC-12, FR-005-AC-13 | 🚧 |
-| TC-020 | The runner over a fixture crate reads records from the binary alone and writes JUnit from libtest's `--logfile` (a test forging stdout changes nothing; a missing or duplicate line fails): pass, panic, ignored, `should_panic` and `tokio::test` cases carry `trace` with the right outcome; a test in `mod tests` of `src/foo/bar.rs` reports `tests::t` | Integration | P0 | FR-006-AC-1, FR-006-AC-2, FR-006-AC-3, FR-006-AC-4, FR-006-AC-5, FR-006-AC-10, FR-006-AC-14, FR-006-AC-15, FR-006-AC-17, FR-006-AC-18 | ✅ |
-| TC-021 | Concurrent tests keep their own ids; rstest cases report the source name and a same-named module's untagged test gets no mark; an aborting binary loses no test; the rstest-above warning is printed; a duplicate-name ambiguity marks nothing; `process::exit(0)` is re-run; an unmatched record is reported with non-zero exit; one output file is written once and plain `cargo test` writes no mark | Integration | P0 | FR-006-AC-6, FR-006-AC-7, FR-006-AC-8, FR-006-AC-9, FR-006-AC-11, FR-006-AC-13, FR-006-AC-16, FR-006-AC-19 | ✅ |
+| TC-020 | The runner over a fixture crate reads records from the binary alone and writes JUnit from libtest's `--logfile` (a test forging stdout changes nothing; a missing line is rerun and a duplicate line fails; a `harness = false` target is run as is, a rejected test argument is an error, and a `prefer-dynamic` binary finds its libraries through cargo): pass, panic, ignored, `should_panic` and `tokio::test` cases carry `trace` with the right outcome; a test in `mod tests` of `src/foo/bar.rs` reports `tests::t` | Integration | P0 | FR-006-AC-1, FR-006-AC-2, FR-006-AC-3, FR-006-AC-4, FR-006-AC-5, FR-006-AC-10, FR-006-AC-14, FR-006-AC-15, FR-006-AC-17, FR-006-AC-18 | ✅ |
+| TC-021 | Concurrent tests keep their own ids; rstest cases report the source name and a same-named module's untagged test gets no mark; an aborting binary loses no test; the path-qualified rstest misuse warning is printed without changing the exit status; a duplicate-name ambiguity marks nothing; `process::exit(0)` is re-run; an unmatched record is reported with non-zero exit; one output file is written once and plain `cargo test` writes no mark | Integration | P0 | FR-006-AC-6, FR-006-AC-7, FR-006-AC-8, FR-006-AC-9, FR-006-AC-11, FR-006-AC-13, FR-006-AC-16, FR-006-AC-19 | ✅ |
 | TC-022 | The runner's median wall-clock over the quire-rs suite, binaries prebuilt, warm cache, equal thread count, five alternating runs, stays under 105% of `cargo test --tests`; the quire-rs revision is recorded in the output | Benchmark | P1 | FR-006-AC-12, FR-006-CON-1 | 🚧 |
 
 ## Stakeholder Validation
@@ -83,6 +85,14 @@ has no business expressing anyone else's.
 | StR-001-VC-3 | FR-001, FR-002 | Demonstration — the canonical marker compiles; every test in this repository annotated with it is the standing evidence | ✅ |
 
 ## Verification Status
+
+Known limits, stated rather than hidden: FR-005-AC-1's "exactly the input
+tokens" is evidenced by the absence of a trace section in the default build, not
+by a token comparison. FR-005-AC-10 and the per-object-format section name of
+FR-005-AC-12 are verified on Linux (ELF) only; macOS and Windows MSVC are not
+claimed, so TC-019 stays pending. FR-006-AC-12 (TC-022, the cost over quire-rs)
+has not been run. The fixture crates for rstest and tokio fetch those crates on
+first use (network needed once); their committed lockfiles pin the versions.
 
 GREEN for the v1 surface, with two rows honestly pending.
 

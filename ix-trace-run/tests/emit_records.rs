@@ -13,6 +13,7 @@ fn records(bins: &[ix_trace_run::cargo::TestBinary], target: &str) -> Vec<Record
     read_records(&binary(bins, target).executable)
         .expect("the binary is readable")
         .expect("the binary has a trace section")
+        .records
 }
 
 fn with_ids<'a>(records: &'a [Record], ids: &[&str]) -> Vec<&'a Record> {
@@ -146,6 +147,7 @@ fn tc019_every_tagged_test_keeps_its_record_through_linking() {
         read_records(&binary(&bins, "x").executable)
             .unwrap()
             .unwrap()
+            .records
             .len(),
         1
     );
