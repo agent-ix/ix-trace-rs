@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::cargo::{self, TestBinary};
+use crate::cargo::{self, Environment, TestBinary};
 use crate::junit::{self, Case, Suite};
 use crate::logfile::{self, Outcome};
 use crate::matching::{match_records, Layout};
@@ -62,7 +62,9 @@ impl Options {
 /// Returns an [`Error`] when the build fails or the result file cannot be
 /// written.
 pub fn run(options: &Options) -> Result<bool, Error> {
-    let binaries = cargo::build_tests(&options.cargo_args)?;
+    let build = cargo::build_tests(&options.cargo_args)?;
+    let environment = Environment::gather(&options.cargo_args, &build)?;
+    let binaries = build.binaries;
     let workspace_root = cargo::workspace_root(&options.cargo_args)?;
     let mut clean = true;
     let mut suites = Vec::new();
@@ -71,7 +73,7 @@ pub fn run(options: &Options) -> Result<bool, Error> {
             workspace_root: workspace_root.clone(),
             root_file: binary.root_file.clone(),
         };
-        let (suite, binary_clean) = run_binary(binary, &layout, options)?;
+        let (suite, binary_clean) = run_binary(binary, &layout, options, &environment)?;
         clean &= binary_clean;
         suites.extend(suite);
     }
@@ -94,6 +96,7 @@ fn run_binary(
     binary: &TestBinary,
     layout: &Layout,
     options: &Options,
+    env: &Environment,
 ) -> Result<(Option<Suite>, bool), Error> {
     let name = binary.executable.display();
     let test_args: Vec<&str> = options.test_args.iter().map(String::as_str).collect();
@@ -102,15 +105,15 @@ fn run_binary(
         notice(&format!(
             "notice: {name} sets harness = false; it is run as is and has no cases"
         ));
-        let status = binary
-            .command(&options.cargo_args, &test_args)
+        let status = env
+            .command(binary, &test_args)
             .status()
             .map_err(|source| Error::io(format!("cannot run {name}"), source))?;
         return Ok((None, status.success()));
     }
 
     let records = load_records(binary);
-    let all = match list(binary, &options.cargo_args, &[]) {
+    let all = match list(binary, env, &[]) {
         Ok(all) => all,
         Err(detail) => {
             notice(&format!(
@@ -122,7 +125,7 @@ fn run_binary(
     let selected = if test_args.is_empty() {
         all.clone()
     } else {
-        match list(binary, &options.cargo_args, &test_args) {
+        match list(binary, env, &test_args) {
             Ok(selected) => selected,
             Err(detail) => {
                 notice(&format!(
@@ -137,7 +140,7 @@ fn run_binary(
     let mut clean = true;
     let mut outcomes = Vec::new();
     if !selected.is_empty() {
-        let (found, ok) = execute(binary, &selected, options)?;
+        let (found, ok) = execute(binary, &selected, options, env)?;
         clean &= ok;
         outcomes = found;
     }
@@ -233,11 +236,11 @@ fn load_records(binary: &TestBinary) -> Vec<Record> {
 }
 
 /// The names `--list` prints, or the reason it failed.
-fn list(binary: &TestBinary, cargo_args: &[String], extra: &[&str]) -> Result<Vec<String>, String> {
+fn list(binary: &TestBinary, env: &Environment, extra: &[&str]) -> Result<Vec<String>, String> {
     let mut args = vec!["--list"];
     args.extend_from_slice(extra);
-    let output = binary
-        .command(cargo_args, &args)
+    let output = env
+        .command(binary, &args)
         .output()
         .map_err(|err| format!("cannot start cargo: {err}"))?;
     if !output.status.success() {
@@ -260,6 +263,7 @@ fn execute(
     binary: &TestBinary,
     selected: &[String],
     options: &Options,
+    env: &Environment,
 ) -> Result<(Outcomes, bool), Error> {
     let name = binary.executable.display();
     let dir = tempfile::tempdir()
@@ -268,8 +272,8 @@ fn execute(
     let log_arg = log_path.to_string_lossy().into_owned();
     let mut harness_args = vec!["--logfile", log_arg.as_str()];
     harness_args.extend(options.test_args.iter().map(String::as_str));
-    let status = binary
-        .command(&options.cargo_args, &harness_args)
+    let status = env
+        .command(binary, &harness_args)
         .status()
         .map_err(|source| Error::io(format!("cannot run {name}"), source))?;
     let text = std::fs::read(&log_path).map(|b| String::from_utf8_lossy(&b).into_owned());
@@ -310,8 +314,7 @@ fn execute(
         } else if let Some(&outcome) = log.outcomes.get(test) {
             outcomes.push((test.clone(), outcome, None));
         } else {
-            let (outcome, message) =
-                rerun(binary, test, &options.cargo_args, &rerun_flags, dir.path())?;
+            let (outcome, message) = rerun(binary, test, env, &rerun_flags, dir.path())?;
             outcomes.push((test.clone(), outcome, message));
         }
     }
@@ -324,7 +327,7 @@ fn execute(
 fn rerun(
     binary: &TestBinary,
     test: &str,
-    cargo_args: &[String],
+    env: &Environment,
     flags: &[&str],
     dir: &Path,
 ) -> Result<(Outcome, Option<String>), Error> {
@@ -334,15 +337,12 @@ fn rerun(
     let log_arg = log_path.to_string_lossy().into_owned();
     let mut args = vec!["--exact", test, "--logfile", log_arg.as_str()];
     args.extend_from_slice(flags);
-    let status = binary
-        .command(cargo_args, &args)
-        .status()
-        .map_err(|source| {
-            Error::io(
-                format!("cannot run {}", binary.executable.display()),
-                source,
-            )
-        })?;
+    let status = env.command(binary, &args).status().map_err(|source| {
+        Error::io(
+            format!("cannot run {}", binary.executable.display()),
+            source,
+        )
+    })?;
     let text = std::fs::read(&log_path).map(|b| String::from_utf8_lossy(&b).into_owned());
     let log = logfile::parse(&text.unwrap_or_default(), &[test.to_owned()]);
     if !status.success() {

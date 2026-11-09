@@ -30,9 +30,20 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   `--list` output is therefore identical to a build without `emit`. A binary with
   no trace section (an unsupported target, or no tagged test) yields a stderr
   notice naming it and no marks, and does not by itself change the exit status.
-- **Execution.** The runner SHALL run each test binary once through `cargo test`
-  restricted to that one target, so the process gets the environment, dylib search
-  path and target runner stock `cargo test` gives it, in the default parallel mode and without `--nocapture`, passing libtest's
+- **Execution.** The runner SHALL run each test binary once, in the default
+  parallel mode and without `--nocapture`. The binary it executes SHALL be the file
+  it read the records from, taken from the build messages of the one
+  `cargo test --no-run`; it SHALL NOT invoke `cargo test` again, because a second
+  invocation can unify features differently and build another binary. It SHALL give
+  the process the environment `cargo test` gives it, rebuilt from the build messages
+  and `cargo metadata`: the package root as working directory, `CARGO`,
+  `CARGO_MANIFEST_DIR`, the `CARGO_PKG_*` variables of the owning package, and a
+  dynamic library search path (`LD_LIBRARY_PATH`, `DYLD_FALLBACK_LIBRARY_PATH` or
+  `PATH`) made of the binary's `deps` directory, the compiler's library directory and
+  the native library directories of the build scripts. A configured target runner
+  (`target.<triple>.runner` in cargo config, a `CARGO_TARGET_<TRIPLE>_RUNNER`
+  variable or a `--config` with a runner) is unsupported and the runner SHALL stop
+  with an error that says so. It passes libtest's
   `--logfile <temporary path>`. Outcomes SHALL come from that log file, which
   the harness writes and test output cannot reach, and never from stdout. Its
   line forms are `ok <name>`, `failed <name>`, `ignored <name>` and
@@ -43,9 +54,9 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   accepted by stable libtest and marked deprecated in its help; its removal is
   a reason to revisit this by amendment.
 - **Unlistable binaries.** A target with `harness = false` SHALL be run as is,
-  without libtest flags, and yields no cases. A libtest binary whose `--list` fails,
-  and a test argument that `--list` rejects, SHALL be reported on stderr and the
-  runner SHALL exit non-zero.
+  without libtest flags, and yields no cases (FR-006-AC-20). A libtest binary whose
+  `--list` fails, and a test argument that `--list` rejects, SHALL be reported on
+  stderr and the runner SHALL exit non-zero (FR-006-AC-21).
 - **Log lines.** Every listed test SHALL have exactly one log line, whatever the
   exit status. A duplicate line makes the test `fail` and the runner exit
   non-zero, never `pass`. A test with no log line takes the abnormal-exit path
@@ -136,6 +147,10 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
 | FR-006-AC-17 | A test marked `#[ignore = "line one\nline two"]` yields one skipped case under its own name, and the tests listed after it keep their own outcomes. | Test |
 | FR-006-AC-18 | A binary with no trace section yields a stderr notice and no marks, and the run's exit status is that of its tests. | Test |
 | FR-006-AC-19 | A method `#[trace("X")] fn check` without a receiver and a free `#[test] fn check` in one module give two records with one libtest name: neither test receives `X`, and the ambiguity is reported with a non-zero exit. | Test |
+| FR-006-AC-20 | A target declared `harness = false` is executed once with no libtest flag, produces no case, and its exit status is the run's contribution for it. | Test |
+| FR-006-AC-21 | A test argument that the binary's `--list` rejects produces a stderr error naming the argument and a non-zero exit, and no test of that binary is silently skipped. | Test |
+| FR-006-AC-22 | The executed test binary path equals the path the records were read from, including in a workspace where feature unification differs between invocations, and a binary built with `-C prefer-dynamic` finds its libraries. | Test |
+| FR-006-AC-23 | With a target runner configured, the runner stops with an error stating that target runners are unsupported and writes no result file. | Test |
 | FR-006-AC-12 | Over the quire-rs suite, with test binaries prebuilt by one `cargo test --no-run` (compile time excluded), a warm cache, the same `--test-threads` value for both modes, and the quire-rs revision recorded in the benchmark output, the median of at least five alternating runs of the runner is under 105% of the median of the same runs of `cargo test --tests` (stock without doctests, which the runner does not run). | Test |
 
 ## Dependencies

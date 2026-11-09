@@ -69,3 +69,20 @@ The rstest behaviour was measured on rstest 0.26.1 with probe crates:
 | FND-004 | low | spec/tests.md flips TC-020 and TC-021 to ✅ too early. TC-020 claims "a missing or duplicate line fails", which is only parser-tested (FND-002). TC-021 claims "the rstest-above warning is printed", which is tested only on synthetic records and cannot occur for the bare spelling (FND-001) | spec/tests.md:73-74 |
 | FND-005 | low | Some clauses are only partly tested. FR-005-AC-1's first clause ("yields exactly the input tokens") is checked only through the absence of a section. FR-005-AC-12's second clause (section name per object format) is checked on Linux only. FR-006-AC-11's second clause ("plain `cargo test` writes no `trace` property") is vacuous, because plain `cargo test` writes no JUnit file | ix-trace-run/tests/emit_records.rs:159-165,307-334; ix-trace-run/tests/runner_basic.rs:147-171 |
 | FND-006 | low | FR-006 "Reported symbol" applies the file-relative chain to every case, but cases with no record are written with the raw libtest name and no `file` (for example `plain_tagged::untagged_inside`). quoin's store join (FR-030-AC-18) then sees module-qualified names it cannot join. Either narrow the spec to cases that have a record, or say that untagged cases bind nothing and need no join | ix-trace-run/src/run.rs:158-164; spec/functional/FR-006-emission-run.md:70-80 |
+
+## New findings (disposition pass 1)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-007 | low | The new FR-006 "Unlistable binaries" behaviour (two SHALLs: run `harness = false` as is; a `--list` failure or a rejected argument is reported with a non-zero exit) has no acceptance criterion, so its tests bind to nothing in the matrix | spec/functional/FR-006-emission-run.md:45-48 |
+
+## Dispositions
+
+| FND | outcome | reason |
+| --- | ------- | ------ |
+| FND-001 | fixed | 25363df: the FR-005 Attribute order text, AC-4 and the FR-006 Misuse warning now describe rstest consuming a bare `#[trace]`; the `misuse` fixture proves the per-case records |
+| FND-002 | fixed | 25363df: the `dup_log` fixture proves AC-15 end to end (a failing case and exit 1); AC-13's unchanged exit is asserted on the `misuse` fixture |
+| FND-003 | fixed | 25363df: Abnormal exit reads the rerun's log; no log line is `fail` with a notice; AC-16 is reworded to match |
+| FND-004 | fixed | 25363df: TC-020 and TC-021 now rest on end-to-end tests; TC-019 and TC-022 stay pending |
+| FND-005 | accepted-no-change | The partial clauses remain partial, but a Known limits paragraph in spec/tests.md now states each one (AC-1 by absence of a section, AC-10 and AC-12 on Linux only), and FR-006-AC-11's vacuous clause was removed |
+| FND-006 | fixed | 25363df: Reported symbol is narrowed to cases that have a record; untagged cases are stated to need no join |

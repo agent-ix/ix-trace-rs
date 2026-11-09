@@ -141,6 +141,7 @@ fn the_rstest_misuse_warning_does_not_change_the_exit_status() {
     assert_eq!(run.code, Some(0), "{}", run.stderr);
 }
 
+#[trace("FR-006-AC-20")]
 #[test]
 fn a_harness_false_target_is_run_as_is_and_never_given_list() {
     let run = runner("harness_false", &[], &[]);
@@ -149,6 +150,7 @@ fn a_harness_false_target_is_run_as_is_and_never_given_list() {
     assert!(case(&run.xml, "ordinary").contains("name=\"ordinary\""));
 }
 
+#[trace("FR-006-AC-21")]
 #[test]
 fn a_test_argument_that_list_rejects_is_a_loud_error() {
     let run = runner("harness_false", &[], &["--no-such-flag"]);
@@ -160,6 +162,7 @@ fn a_test_argument_that_list_rejects_is_a_loud_error() {
     );
 }
 
+#[trace("FR-006-AC-22")]
 #[test]
 fn test_processes_get_cargos_dylib_search_path() {
     // With `prefer-dynamic` the binary needs libstd from the sysroot, which
@@ -186,4 +189,45 @@ fn test_processes_get_cargos_dylib_search_path() {
     );
     let xml = std::fs::read_to_string(&output).expect("result written");
     assert!(case(&xml, "ordinary").contains("name=\"ordinary\""));
+}
+
+#[trace("FR-006-AC-22")]
+#[test]
+fn the_executed_binary_is_the_inspected_one_under_feature_unification() {
+    let bins = common::build("unified", &["--workspace"]);
+    let out = tempfile::tempdir().expect("temp dir");
+    let result = out.path().join("result.xml");
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_ix-trace-run"))
+        .arg("--output")
+        .arg(&result)
+        .arg("--manifest-path")
+        .arg(common::manifest("unified"))
+        .arg("--workspace")
+        .env("CARGO_TARGET_DIR", common::target_dir())
+        .env("IXTRACE_EXE_OUT", out.path())
+        .status()
+        .expect("runner starts");
+    assert!(status.success());
+    for name in ["a", "b"] {
+        let ran = std::fs::read_to_string(out.path().join(name)).expect("test recorded its path");
+        let inspected = &common::binary(&bins, name).executable;
+        assert_eq!(std::path::Path::new(&ran), inspected, "package {name}");
+    }
+}
+
+#[trace("FR-006-AC-23")]
+#[test]
+fn a_configured_target_runner_is_refused() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_ix-trace-run"))
+        .arg("--output")
+        .arg(dir.path().join("result.xml"))
+        .arg("--manifest-path")
+        .arg(common::manifest("harness_false"))
+        .env("CARGO_TARGET_DIR", common::target_dir())
+        .env("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER", "true")
+        .output()
+        .expect("runner starts");
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("does not support target runners"));
 }

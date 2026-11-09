@@ -85,3 +85,25 @@ from an empty container, for top-level, `mod tests` and rstest-source names.
 | FND-007 | low | rust-style: the new crate has no `#![forbid(unsafe_code)]` and no workspace safety lints. Its `Error` is a hand-rolled enum without a stable `Copy` code enum or a `thiserror` envelope | ix-trace-run/src/lib.rs:1-39 |
 | FND-008 | low | New tests carry no trace attribute although the repository traces tests (rust-style testing): logfile `a_reason_with_a_newline_…` (FR-006-AC-17) and `a_line_naming_no_listed_test_is_not_read` (FR-006-AC-14), matching `the_symbol_drops_the_module_prefix_of_the_file` (FR-006-AC-3), `a_name_outside_its_files_prefix_is_unmatched` (FR-006-AC-9), `two_records_with_one_libtest_name_mark_nothing` (FR-006-AC-19) and `a_parametrized_record_marks_its_cases_…` (FR-006-AC-7), and the registry parse test | ix-trace-run/src/logfile.rs:122,135; ix-trace-run/src/matching.rs:380,394,402,412; ix-trace-run/src/registry.rs:307 |
 | FND-009 | low | Fixture crates take `rstest = "0.26"` and `tokio = "1"` from crates.io, and their lockfiles are gitignored. The suite needs the network and floats to new releases, and the rstest attribute behaviour it depends on (SR-010 FND-001) can change underneath it | .gitignore:12-13; ix-trace-run/tests/fixtures/rstest_tokio/Cargo.toml:10-12 |
+
+## New findings (disposition pass 1)
+
+| ID      | Severity | Summary | Refs |
+| ------- | -------- | ------- | ---- |
+| FND-010 | high | The FND-004 fix runs each binary through `cargo test --package <id> <selector>`, after removing the caller's `--workspace`/`-p`/target flags. That changes feature unification, so cargo builds and executes a different binary from the one whose records were read. Reproduced on the `unified` fixture: `--no-run --workspace` built `b-c421729ce7e7a4f9`, but the runner ran `b-4082d85133be9902` (b without the unified `emit`). The listed tests, the `cfg(feature)`-gated tests and the outcomes then come from a build the user did not request, while the records come from another. A workspace run like quire-rs can also rebuild per package. The new FR-006 "Execution" text mandates this design. Keep one build and one identity, for example with a single `cargo test` that uses ix-trace-run as the target runner (`--config target.<triple>.runner`) so cargo supplies the env, or execute the inspected executable with the env cargo would give it | ix-trace-run/src/cargo.rs:132-182; ix-trace-run/src/run.rs:236-253; spec/functional/FR-006-emission-run.md:33-35 |
+| FND-011 | low | The three new runner tests carry no trace attribute: `a_harness_false_target_is_run_as_is_and_never_given_list`, `a_test_argument_that_list_rejects_is_a_loud_error` and `test_processes_get_cargos_dylib_search_path` | ix-trace-run/tests/runner_faults.rs:144-189 |
+| FND-012 | low | E-7 cost risk. Every libtest binary now costs at least two cargo invocations (`--list` and the run), plus one more with test arguments and one per alone-rerun. Each cargo no-op startup measured about 40 ms on a fixture, before any FND-010 rebuild. That is unmeasured over quire-rs's roughly 55 test binaries, so TC-022 must be run before FR-006-CON-1 is claimed | ix-trace-run/src/run.rs:113-140 |
+
+## Dispositions
+
+| FND | outcome | reason |
+| --- | ------- | ------ |
+| FND-001 | fixed | 25363df: a rerun with no log line is `fail` with a stderr notice; the fixture test asserts `<failure>` and the notice |
+| FND-002 | fixed | 25363df: `default-members = [".", "ix-trace-run"]`; plain `cargo test` at the root now runs the ix-trace-run suites |
+| FND-003 | fixed | 25363df: `harness = false` is read from the manifest and never given `--list`; a `--list` failure and a rejected test argument are loud errors with a non-zero exit; tests for both |
+| FND-004 | fixed | 25363df: processes run under `cargo test`, and the prefer-dynamic test passes; the fix introduces FND-010 |
+| FND-005 | fixed | 25363df: `Registry.malformed` counts unreadable and other-version entries and the runner warns |
+| FND-006 | fixed | 25363df: `rust-version = "1.98.1"`; clippy no longer warns about the MSRV |
+| FND-007 | fixed | 25363df: `[lints.rust] unsafe_code = "forbid"`; a `thiserror` `Error` with a `Copy` `ErrorCode` |
+| FND-008 | fixed | 25363df: the seven unit tests carry trace attributes |
+| FND-009 | fixed | 25363df: fixture lockfiles are committed and pin rstest and tokio; the network is needed once, as disclosed in Known limits |
