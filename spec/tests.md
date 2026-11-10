@@ -42,7 +42,7 @@ has no business expressing anyone else's.
 
 ## Functional Requirement Coverage
 
-| Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
+| Functional Req | Acceptance Criteria | Test Cases | Status |
 |----|----|----|--------|
 | FR-001 trace attribute | AC-1..5 | TC-001 (single + multiple ids, trailing comma), TC-002 (non-function items), TC-003 (composes with `#[test]`) | ✅ |
 | FR-002 implements attribute | AC-1..3 | TC-004 (transparency), TC-005 (both attributes on one item), TC-009 (rejects prose, names `implements`) | ✅ |
