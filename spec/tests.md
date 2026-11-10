@@ -98,10 +98,10 @@ FR-006-AC-12 (TC-022, the cost over quire-rs) is measured by the ignored test
 whose `ix-trace-rs` dev-dependency has `emit` on; `QUIRE_RS_ROUNDS` raises the
 five alternating rounds). The test prints the quire-rs revision when it runs.
 TC-022 passes (E-7). Three measurements on a loaded shared host (other sessions'
-builds running, load average 7-14; no run had a quiet host), 4 test threads,
-five alternating rounds, release build: quire-rs `74187bd` median stock 92.77 s,
-runner 83.79 s, ratio 90.3%; quire-rs `74187bd` stock 87.60 s, runner 84.30 s,
-ratio 96.2%; quire-rs `5a2a93398013c6a715bad66dd36d17c47efb036b` stock 123.38 s,
+builds running, load average up to 14.6 during the runs; no run had a quiet host), 4 test threads,
+five alternating rounds, release build: median stock 92.77 s,
+runner 83.79 s, ratio 90.3%; stock 87.60 s, runner 84.30 s,
+ratio 96.2%; stock 123.38 s,
 runner 127.64 s, ratio 103.5%. The 90-104% spread is noise from that load, and
 all three are under the 105% limit. The runner adds one `--list` process per
 binary (two with test arguments) and one process per alone-rerun, and no cargo
