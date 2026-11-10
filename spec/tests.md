@@ -42,14 +42,14 @@ has no business expressing anyone else's.
 
 ## Functional Requirement Coverage
 
-| Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
+| Functional Req | Acceptance Criteria | Test Cases | Status |
 |----|----|----|--------|
 | FR-001 trace attribute | AC-1..5 | TC-001 (single + multiple ids, trailing comma), TC-002 (non-function items), TC-003 (composes with `#[test]`) | ✅ |
 | FR-002 implements attribute | AC-1..3 | TC-004 (transparency), TC-005 (both attributes on one item), TC-009 (rejects prose, names `implements`) | ✅ |
 | FR-003 argument grammar | AC-1..7 | TC-006 (real id forms accepted), TC-007 (prose rejected), TC-008 (vocabulary not checked), TC-009 (compile-fail suite: prose, non-literal, empty list, empty string, second-argument span) | 🚧 |
 | FR-004 string_edge attribute | AC-1..3, CON-1 | TC-015 (transparent on free functions and methods), TC-009 (rejects an argument, item retained), TC-016 (composes with `#[test]`), TC-014 (CON-1: no dependency added) | ✅ |
 | FR-005 emission mode | AC-1..13; CON-1..3 | TC-017 (inert default, bad arguments, `implements` registers nothing), TC-018 (records: ids, non-qualifying items, rstest order, tokio, untagged), TC-019 (unification, link retention) | ✅ |
-| FR-006 emission run | AC-1..23; CON-1..2 | TC-020 (JUnit shape, non-root file naming, outcomes, tokio), TC-021 (concurrency, rstest matching, abnormal exit, unmatched record, single write), TC-022 (cost on quire-rs) | 🚧 |
+| FR-006 emission run | AC-1..23; CON-1..2 | TC-020 (JUnit shape, non-root file naming, outcomes, tokio), TC-021 (concurrency, rstest matching, abnormal exit, unmatched record, single write), TC-022 (cost on quire-rs) | ✅ |
 | NFR-001 dependency posture | AC-1..3 | TC-014 (`[dependencies]` empty, no parsing crate imported) | ✅ |
 
 ## Test Case Summary
@@ -74,7 +74,7 @@ has no business expressing anyone else's.
 | TC-019 | With `emit` on for one package, a second package without `ix-trace-run` still compiles and passes; every tagged test of a fixture keeps its record through linking on each supported platform, and a `wasm` crate builds with no section | Integration | P0 | FR-005-AC-9, FR-005-AC-10, FR-005-AC-12, FR-005-AC-13 | ✅ |
 | TC-020 | The runner over a fixture crate reads records from the binary alone and writes JUnit from libtest's `--logfile` (a test forging stdout changes nothing; a missing line is rerun and a duplicate line fails; a `harness = false` target is run as is, a rejected test argument is an error, and a `prefer-dynamic` binary finds its libraries through the rebuilt search path; the executed binary is the inspected one under feature unification; a configured target runner is refused): pass, panic, ignored, `should_panic` and `tokio::test` cases carry `trace` with the right outcome; a test in `mod tests` of `src/foo/bar.rs` reports `tests::t` | Integration | P0 | FR-006-AC-1, FR-006-AC-2, FR-006-AC-3, FR-006-AC-4, FR-006-AC-5, FR-006-AC-10, FR-006-AC-14, FR-006-AC-15, FR-006-AC-17, FR-006-AC-18, FR-006-AC-20, FR-006-AC-21, FR-006-AC-22, FR-006-AC-23 | ✅ |
 | TC-021 | Concurrent tests keep their own ids; rstest cases report the source name and a same-named module's untagged test gets no mark; an aborting binary loses no test; the path-qualified rstest misuse warning is printed without changing the exit status; a duplicate-name ambiguity marks nothing; `process::exit(0)` is re-run; an unmatched record is reported with non-zero exit; one output file is written once and plain `cargo test` writes no mark | Integration | P0 | FR-006-AC-6, FR-006-AC-7, FR-006-AC-8, FR-006-AC-9, FR-006-AC-11, FR-006-AC-13, FR-006-AC-16, FR-006-AC-19 | ✅ |
-| TC-022 | The runner's median wall-clock over the quire-rs suite, binaries prebuilt, warm cache, equal thread count, five alternating runs, stays under 105% of `cargo test --tests`; the quire-rs revision is recorded in the output | Benchmark | P1 | FR-006-AC-12, FR-006-CON-1 | 🚧 |
+| TC-022 | The runner's median wall-clock over the quire-rs suite, binaries prebuilt, warm cache, equal thread count, five alternating runs, stays under 105% of `cargo test --tests`; the quire-rs revision is recorded in the output | Benchmark | P1 | FR-006-AC-12, FR-006-CON-1 | ✅ |
 
 ## Stakeholder Validation
 
@@ -97,9 +97,13 @@ FR-006-AC-12 (TC-022, the cost over quire-rs) is measured by the ignored test
 `ix-trace-run/tests/cost_quire_rs.rs`, run with `cargo test -p ix-trace-run --release --test cost_quire_rs -- --ignored --nocapture` (`QUIRE_RS_DIR` names a quire-rs checkout
 whose `ix-trace-rs` dev-dependency has `emit` on; `QUIRE_RS_ROUNDS` raises the
 five alternating rounds). The test prints the quire-rs revision when it runs.
-Runs on a shared, loaded host were inconclusive (unloaded pairs gave ratios
-from 0.92 to 1.14), so TC-022 stays pending until the test passes on a quiet
-host. The runner adds one `--list` process per
+TC-022 passes (E-7). Three measurements on a loaded shared host (other sessions'
+builds running, load average up to 14.6 during the runs; no run had a quiet host), 4 test threads,
+five alternating rounds, release build: median stock 92.77 s,
+runner 83.79 s, ratio 90.3%; stock 87.60 s, runner 84.30 s,
+ratio 96.2%; stock 123.38 s,
+runner 127.64 s, ratio 103.5%. The 90-104% spread is noise from that load, and
+all three are under the 105% limit. The runner adds one `--list` process per
 binary (two with test arguments) and one process per alone-rerun, and no cargo
 startups. The environment given to a test binary is rebuilt, not cargo's own, and
 omits variables such as `CARGO_PRIMARY_PACKAGE`, build-script `rustc-env` values,
