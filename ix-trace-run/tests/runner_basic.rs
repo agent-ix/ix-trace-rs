@@ -169,3 +169,21 @@ fn tc021_a_clean_run_writes_one_file_and_leaves_no_log() {
     assert!(case(&xml, "from_a").contains("value=\"TC-5a1\""));
     assert!(case(&xml, "from_b").contains("value=\"TC-5b1\""));
 }
+
+#[trace("FR-006-AC-24")]
+#[test]
+fn stacked_attributes_share_one_case_with_the_union_of_their_ids() {
+    let run = runner("stacked", &["--features", "emit"], &["--test-threads=4"]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert_eq!(cases_named(&run.xml, "stacked").len(), 1);
+    assert!(
+        case(&run.xml, "stacked").contains("value=\"TC-801,TC-802,TC-803\""),
+        "{}",
+        run.xml
+    );
+    assert!(
+        case(&run.xml, "single").contains("value=\"TC-802,TC-801\""),
+        "{}",
+        run.xml
+    );
+}

@@ -2,9 +2,11 @@
 //!
 //! The reader opens the binary as data. Nothing in the binary runs.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use object::{Object, ObjectSection};
+use ix_trace_rs::implements;
+use object::{Object, ObjectSection, ObjectSymbol};
 
 /// Start of a record; matches `ix-trace-rs`'s emitter.
 const START: &[u8] = b"\x02IXTR1";
@@ -15,9 +17,23 @@ const SEP: char = '\u{1f}';
 /// End of a record.
 const END: u8 = 3;
 
+/// What compiler object symbols establish about one record's source definition.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Definition {
+    /// The binary carries no supported owner proof.
+    Unknown,
+    /// One compiler-qualified function owns this record.
+    Proven(String),
+    /// Multiple compiler-qualified functions share this record's storage.
+    Ambiguous,
+}
+
 /// One trace record: the ids declared on a `fn` item and where it lives.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Record {
+    /// Compiler-qualified owner of the emitted static, when uniquely proved by object symbols.
+    /// Absent for byte-only parsing or stripped/unsupported symbol tables.
+    pub definition: Definition,
     /// The ids, in declaration order.
     pub ids: Vec<String>,
     /// The function identifier.
@@ -82,6 +98,7 @@ pub struct Registry {
 ///
 /// Returns [`RegistryError`] when the file cannot be read or is not an object
 /// file.
+#[implements("FR-006-AC-1", "FR-006-AC-24")]
 pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
     let data = std::fs::read(path).map_err(RegistryError::Io)?;
     let file = object::File::parse(&*data).map_err(RegistryError::Format)?;
@@ -90,7 +107,47 @@ pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
         let Ok(name) = section.name() else { continue };
         if matches!(name, "ixtrace" | "__ixtrace" | ".ixtrace") {
             let bytes = section.data().map_err(RegistryError::Format)?;
-            let parsed = parse_records(bytes);
+            let (mut parsed, offsets) = parse_records_with_offsets(bytes);
+            let mut owners_by_address: BTreeMap<u64, BTreeSet<String>> = BTreeMap::new();
+            for offset in &offsets {
+                if let Ok(offset) = u64::try_from(*offset) {
+                    if let Some(address) = section.address().checked_add(offset) {
+                        owners_by_address.entry(address).or_default();
+                    }
+                }
+            }
+            for symbol in file
+                .symbols()
+                .filter(|symbol| symbol.section_index() == Some(section.index()))
+            {
+                let Some(owners) = owners_by_address.get_mut(&symbol.address()) else {
+                    continue;
+                };
+                if let Some(owner) = symbol.name().ok().and_then(compiler_owner) {
+                    owners.insert(owner);
+                }
+            }
+            for (record, offset) in parsed.records.iter_mut().zip(offsets) {
+                let Ok(offset) = u64::try_from(offset) else {
+                    continue;
+                };
+                let Some(address) = section.address().checked_add(offset) else {
+                    continue;
+                };
+                let Some(owners) = owners_by_address.get(&address) else {
+                    continue;
+                };
+                record.definition = match owners.len() {
+                    0 => Definition::Unknown,
+                    1 => match owners.first() {
+                        Some(owner) if owner.rsplit("::").next() == Some(record.ident.as_str()) => {
+                            Definition::Proven(owner.clone())
+                        }
+                        _ => Definition::Unknown,
+                    },
+                    _ => Definition::Ambiguous,
+                };
+            }
             let registry = found.get_or_insert_with(Registry::default);
             registry.records.extend(parsed.records);
             registry.malformed += parsed.malformed;
@@ -103,7 +160,14 @@ pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
 /// records, such as padding, are skipped. An entry that does not parse is
 /// counted in [`Registry::malformed`], never dropped silently.
 #[must_use]
+#[implements("FR-006-AC-1")]
 pub fn parse_records(bytes: &[u8]) -> Registry {
+    parse_records_with_offsets(bytes).0
+}
+
+#[implements("FR-006-AC-24")]
+fn parse_records_with_offsets(bytes: &[u8]) -> (Registry, Vec<usize>) {
+    let mut offsets = Vec::new();
     let mut registry = Registry::default();
     let mut rest = bytes;
     while let Some(start) = find(rest, FAMILY) {
@@ -120,12 +184,27 @@ pub fn parse_records(bytes: &[u8]) -> Registry {
             break;
         };
         match parse_one(&body[..end]) {
-            Some(record) => registry.records.push(record),
+            Some(record) => {
+                offsets.push(bytes.len() - rest.len() + start);
+                registry.records.push(record);
+            }
             None => registry.malformed += 1,
         }
         rest = &body[end + 1..];
     }
-    registry
+    (registry, offsets)
+}
+
+/// Only the v0 compiler symbol shape emitted by the supported toolchain proves an owner.
+/// Unknown or stripped symbol forms remain unproved rather than guessing from record fields.
+#[implements("FR-006-AC-24")]
+fn compiler_owner(name: &str) -> Option<String> {
+    if (!name.starts_with("_R") && !name.starts_with("__R")) || !name.contains("6RECORD") {
+        return None;
+    }
+    let demangled = rustc_demangle::try_demangle(name).ok()?.to_string();
+    let owner = demangled.strip_suffix("::_::RECORD")?;
+    Some(owner.to_owned())
 }
 
 /// A `/`-separated form of a path text. Only Windows writes `\` as a separator,
@@ -147,6 +226,7 @@ fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+#[implements("FR-006-AC-1")]
 fn parse_one(body: &[u8]) -> Option<Record> {
     let text = std::str::from_utf8(body).ok()?;
     let mut fields = text.split(SEP);
@@ -159,6 +239,7 @@ fn parse_one(body: &[u8]) -> Option<Record> {
         return None;
     }
     Some(Record {
+        definition: Definition::Unknown,
         ids: ids.split(',').map(str::to_owned).collect(),
         ident: ident.to_owned(),
         module_path: module_path.to_owned(),

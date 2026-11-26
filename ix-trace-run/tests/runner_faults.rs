@@ -233,3 +233,20 @@ fn a_configured_target_runner_is_refused() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("does not support target runners"));
     assert!(!result.exists(), "a refused run must write no result file");
 }
+
+#[trace("FR-006-AC-24", "FR-006-AC-19")]
+#[test]
+fn nested_and_free_tests_with_identical_record_fields_remain_ambiguous() {
+    let run = runner(
+        "nested_collision",
+        &["--features", "emit"],
+        &["--test-threads=4"],
+    );
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert!(run.stderr.contains("ambiguous"), "{}", run.stderr);
+    assert!(
+        !case(&run.xml, "collision").contains("<property"),
+        "{}",
+        run.xml
+    );
+}
