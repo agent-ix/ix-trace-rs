@@ -126,12 +126,12 @@ fn combine_same_definition(group: &[&Record]) -> Option<Record> {
             && record.file == first.file
             && record.ident == first.ident
             && record.module_path == first.module_path
-            && record.test == first.test
-            && record.parametrized == first.parametrized
     }) {
         return None;
     }
     let mut combined = first.clone();
+    combined.test = group.iter().any(|record| record.test);
+    combined.parametrized = group.iter().any(|record| record.parametrized);
     combined.ids = group
         .iter()
         .flat_map(|record| record.ids.iter().cloned())
@@ -300,6 +300,7 @@ mod tests {
     fn two_records_with_one_libtest_name_mark_nothing() {
         let mut a = record(&["X-1"], "check", "c", "src/lib.rs");
         a.test = false;
+        a.definition = Definition::Proven("c::Checker::check".into());
         let b = record(&["TC-5"], "check", "c", "src/lib.rs");
         let matching = match_records(&[a, b], &listed(&["check"]), &layout());
         assert!(matching.marks.is_empty());

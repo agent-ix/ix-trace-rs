@@ -177,6 +177,11 @@ fn stacked_attributes_share_one_case_with_the_union_of_their_ids() {
     assert_eq!(run.code, Some(0), "{}", run.stderr);
     assert_eq!(cases_named(&run.xml, "stacked").len(), 1);
     assert!(
+        case(&run.xml, "interleaved").contains("value=\"TC-804,TC-805\""),
+        "{}",
+        run.xml
+    );
+    assert!(
         case(&run.xml, "stacked").contains("value=\"TC-801,TC-802,TC-803\""),
         "{}",
         run.xml

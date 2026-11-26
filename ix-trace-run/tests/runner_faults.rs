@@ -245,6 +245,21 @@ fn nested_and_free_tests_with_identical_record_fields_remain_ambiguous() {
     assert_eq!(run.code, Some(1), "{}", run.stderr);
     assert!(run.stderr.contains("ambiguous"), "{}", run.stderr);
     assert!(
+        run.stderr.contains("libtest name `check`"),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        run.stderr.contains("libtest name `other`"),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        run.stderr.contains("TC-903") && run.stderr.contains("TC-904"),
+        "{}",
+        run.stderr
+    );
+    assert!(
         !case(&run.xml, "collision").contains("<property"),
         "{}",
         run.xml

@@ -140,10 +140,8 @@ pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
                 record.definition = match owners.len() {
                     0 => Definition::Unknown,
                     1 => match owners.first() {
-                        Some(owner) if owner.rsplit("::").next() == Some(record.ident.as_str()) => {
-                            Definition::Proven(owner.clone())
-                        }
-                        _ => Definition::Unknown,
+                        Some(owner) => Definition::Proven(owner.clone()),
+                        None => Definition::Unknown,
                     },
                     _ => Definition::Ambiguous,
                 };
@@ -199,12 +197,65 @@ fn parse_records_with_offsets(bytes: &[u8]) -> (Registry, Vec<usize>) {
 /// Unknown or stripped symbol forms remain unproved rather than guessing from record fields.
 #[implements("FR-006-AC-24")]
 fn compiler_owner(name: &str) -> Option<String> {
-    if (!name.starts_with("_R") && !name.starts_with("__R")) || !name.contains("6RECORD") {
-        return None;
+    rustc_demangle::try_demangle(name).ok()?;
+    let body = name
+        .strip_prefix("__R")
+        .or_else(|| name.strip_prefix("_R"))?;
+    // The emitter defines RECORD in an anonymous const in the function body:
+    // N v (N v OWNER DISAMBIG IDENT("_")) DISAMBIG IDENT("RECORD").
+    // Keep the entire raw OWNER encoding and its original backreference offsets.
+    body.strip_prefix("NvNv")?;
+    let mut proved = None;
+    for boundary in 4..body.len() {
+        let suffix = body.get(boundary..)?;
+        let Some((anonymous, rest)) = wrapper_identifier(suffix) else {
+            continue;
+        };
+        let Some((record, trailing)) = wrapper_identifier(rest) else {
+            continue;
+        };
+        if anonymous != "_" || record != "RECORD" || !trailing.is_empty() {
+            continue;
+        }
+        // Explicit canonical disambiguators make an incorrect boundary that
+        // leaves a wrapper disambiguator in OWNER fail public parser validation.
+        let canonical = format!("_R{}s_1__s_6RECORD", body.get(..boundary)?);
+        let Ok(parsed) = rustc_demangle::try_demangle(&canonical) else {
+            continue;
+        };
+        // Validate that the public parser consumes the intended two wrappers.
+        // Display is used only to check their literal names, never as identity.
+        if !parsed.to_string().ends_with("::_::RECORD") {
+            continue;
+        }
+        if proved.is_some() {
+            return None;
+        }
+        proved = Some(canonical);
     }
-    let demangled = rustc_demangle::try_demangle(name).ok()?.to_string();
-    let owner = demangled.strip_suffix("::_::RECORD")?;
-    Some(owner.to_owned())
+    proved
+}
+
+/// Parse one v0 wrapper's optional base-62 disambiguator and length-prefixed
+/// ASCII identifier. The complete source and canonical symbols are validated
+/// by rustc-demangle; unknown wrapper structures never establish an owner.
+#[implements("FR-006-AC-24")]
+fn wrapper_identifier(input: &str) -> Option<(&str, &str)> {
+    let input = match input.strip_prefix('s') {
+        Some(disambiguated) => {
+            let (digits, rest) = disambiguated.split_once('_')?;
+            if !digits.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
+                return None;
+            }
+            rest
+        }
+        None => input,
+    };
+    let digits = input.bytes().take_while(u8::is_ascii_digit).count();
+    let length: usize = input.get(..digits)?.parse().ok()?;
+    let input = input.get(digits..)?;
+    let input = input.strip_prefix('_').unwrap_or(input);
+    Some((input.get(..length)?, input.get(length..)?))
 }
 
 /// A `/`-separated form of a path text. Only Windows writes `\` as a separator,
@@ -285,5 +336,25 @@ mod tests {
             "crates/my\\pkg/src/lib.rs"
         };
         assert_eq!(file, expected);
+    }
+    #[trace("FR-006-AC-24")]
+    #[test]
+    fn raw_owner_keys_normalize_only_the_record_wrappers() {
+        let first = "_RNvNvNvCs36XdazKT9rZ_7stackeds_7stacked1__6RECORD";
+        let second = "_RNvNvNvCs36XdazKT9rZ_7stackeds_7stackeds_1__6RECORD";
+        let a = super::compiler_owner(first);
+        let b = super::compiler_owner(second);
+        assert!(a.is_some(), "first owner: {a:?}; second: {b:?}");
+        assert_eq!(a, b);
+        let distinct_function = "_RNvNvNvCs36XdazKT9rZ_7stackeds0_7stacked1__6RECORD";
+        let other = super::compiler_owner(distinct_function);
+        assert!(
+            other.is_some(),
+            "a distinct function remains a supported owner"
+        );
+        assert_ne!(
+            a, other,
+            "function disambiguators remain part of raw identity"
+        );
     }
 }
