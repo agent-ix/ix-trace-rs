@@ -174,6 +174,32 @@ fn tc021_a_clean_run_writes_one_file_and_leaves_no_log() {
 #[test]
 fn stacked_attributes_share_one_case_with_the_union_of_their_ids() {
     let run = runner("stacked", &["--features", "emit"], &["--test-threads=4"]);
+    if run.code != Some(0) {
+        use object::{Object, ObjectSymbol};
+        let binaries = common::build("stacked", &["--features", "emit"]);
+        let executable = &common::binary(&binaries, "stacked").executable;
+        let bytes = std::fs::read(executable).expect("read compiled fixture");
+        let object = object::File::parse(bytes.as_slice()).expect("parse compiled fixture");
+        let names: Vec<_> = object
+            .symbols()
+            .filter_map(|symbol| symbol.name().ok())
+            .filter(|name| name.contains("RECORD"))
+            .take(12)
+            .collect();
+        eprintln!(
+            "owner-proof diagnostic: format={:?} symbols={} record_symbols={names:?} pdb={:?}",
+            object.format(),
+            object.symbols().count(),
+            object.pdb_info()
+        );
+        let records = ix_trace_run::registry::read_records(executable)
+            .expect("read registry")
+            .expect("trace section");
+        eprintln!(
+            "owner-proof diagnostic: {:?}",
+            records.records.iter().take(8).collect::<Vec<_>>()
+        );
+    }
     assert_eq!(run.code, Some(0), "{}", run.stderr);
     assert_eq!(cases_named(&run.xml, "stacked").len(), 1);
     assert!(
