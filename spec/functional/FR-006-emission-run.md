@@ -82,8 +82,14 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
 - **Matching.** A record belongs to a listed test when the record's libtest name
   (`module_path!()` without its first segment, joined by `::` to the identifier)
   equals the listed name exactly, whether or not the record's `test` flag is set,
-  and exactly one record has that libtest name. When two or more records have one
-  libtest name, the runner SHALL mark no test with any of them, report the
+  and exactly one source definition has that libtest name. Multiple records from stacked
+  trace attributes SHALL contribute the sorted, deduplicated union of their ids only
+  when their inert object symbols prove the same compiler-qualified function owner,
+  and their file, module and identifier agree. Test and parametrization flags are
+  emission-order hints and SHALL be combined by logical OR only after this owner proof. A single
+  record SHALL keep its existing behavior. Missing or conflicting owner information
+  SHALL NOT establish that multiple records belong to one definition. When records
+  from distinct or unproved definitions have one libtest name, the runner SHALL mark no test with any of them, report the
   ambiguity on stderr naming the records' files and ids, and exit non-zero (E-3).
   A record with the `parametrized` flag also
   belongs to every listed name that is that libtest name followed by `::` and one
@@ -124,6 +130,8 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
 - **Plain runs.** Running the same test binaries with plain `cargo test` is
   unchanged.
 
+> **CR-001 note (2026-11-26):** IXTR1 records have no source span. The runner uses the emitted statics' raw compiler-qualified object-symbol owners, preserving function disambiguators and normalizing only the emitted anonymous-record wrappers to distinguish stacked attributes from separate definitions without changing the macro record format. Missing owner symbols remain a fail-closed ambiguity. Linked MSVC PE binaries without private COFF owner symbols therefore refuse stacked records; PDB companions are not consumed. Single-record marking, including one attribute with multiple ids, remains unchanged on those binaries.
+
 ## Constraints
 
 | ID | Constraint | Type | Validation |
@@ -153,6 +161,7 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
 | FR-006-AC-17 | A test marked `#[ignore = "line one\nline two"]` yields one skipped case under its own name, and the tests listed after it keep their own outcomes. | Test |
 | FR-006-AC-18 | A binary with no trace section yields a stderr notice and no marks, and the run's exit status is that of its tests. | Test |
 | FR-006-AC-19 | A method `#[trace("X")] fn check` without a receiver and a free `#[test] fn check` in one module give two records with one libtest name: neither test receives `X`, and the ambiguity is reported with a non-zero exit. | Test |
+| FR-006-AC-24 | Stacked trace attributes on one function yield the sorted, deduplicated union of their ids in one JUnit case when the object symbols prove the same owner; distinct nested/associated definitions or missing owner symbols remain ambiguous and fail closed. A single multi-id record retains its declared ids on every supported platform; the MSVC PE fixture without private owner symbols explicitly refuses stacked marks. | Test |
 | FR-006-AC-20 | A target declared `harness = false` is executed once with no libtest flag, produces no case, and its exit status is the run's contribution for it. | Test |
 | FR-006-AC-21 | A test argument that the binary's `--list` rejects produces a stderr error naming the argument and a non-zero exit, and no test of that binary is silently skipped. | Test |
 | FR-006-AC-22 | The executed test binary path equals the path the records were read from, including in a workspace where feature unification differs between invocations, and a binary built with `-C prefer-dynamic` finds its libraries. | Test |

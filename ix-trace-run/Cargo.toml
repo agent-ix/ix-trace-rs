@@ -18,14 +18,14 @@ name = "ix-trace-run"
 path = "src/main.rs"
 
 [dependencies]
+rustc-demangle = "0.1"
+ix-trace-rs = { path = ".." }
 object = { version = "0.40", default-features = false, features = ["read_core", "std", "elf", "macho", "pe"] }
 serde_json = "1"
 tempfile = "3"
 thiserror = "2"
 toml = { version = "0.8", default-features = false, features = ["parse"] }
 
-[dev-dependencies]
-ix-trace-rs = { path = ".." }
 
 [lints.rust]
 unsafe_code = "forbid"

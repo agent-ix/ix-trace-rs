@@ -2,9 +2,11 @@
 //!
 //! The reader opens the binary as data. Nothing in the binary runs.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use object::{Object, ObjectSection};
+use ix_trace_rs::implements;
+use object::{Object, ObjectSection, ObjectSymbol};
 
 /// Start of a record; matches `ix-trace-rs`'s emitter.
 const START: &[u8] = b"\x02IXTR1";
@@ -15,9 +17,23 @@ const SEP: char = '\u{1f}';
 /// End of a record.
 const END: u8 = 3;
 
+/// What compiler object symbols establish about one record's source definition.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Definition {
+    /// The binary carries no supported owner proof.
+    Unknown,
+    /// One compiler-qualified function owns this record.
+    Proven(String),
+    /// Multiple compiler-qualified functions share this record's storage.
+    Ambiguous,
+}
+
 /// One trace record: the ids declared on a `fn` item and where it lives.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Record {
+    /// Compiler-qualified owner of the emitted static, when uniquely proved by object symbols.
+    /// Absent for byte-only parsing or stripped/unsupported symbol tables.
+    pub definition: Definition,
     /// The ids, in declaration order.
     pub ids: Vec<String>,
     /// The function identifier.
@@ -82,6 +98,7 @@ pub struct Registry {
 ///
 /// Returns [`RegistryError`] when the file cannot be read or is not an object
 /// file.
+#[implements("FR-006-AC-1", "FR-006-AC-24")]
 pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
     let data = std::fs::read(path).map_err(RegistryError::Io)?;
     let file = object::File::parse(&*data).map_err(RegistryError::Format)?;
@@ -90,7 +107,45 @@ pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
         let Ok(name) = section.name() else { continue };
         if matches!(name, "ixtrace" | "__ixtrace" | ".ixtrace") {
             let bytes = section.data().map_err(RegistryError::Format)?;
-            let parsed = parse_records(bytes);
+            let (mut parsed, offsets) = parse_records_with_offsets(bytes);
+            let mut owners_by_address: BTreeMap<u64, BTreeSet<String>> = BTreeMap::new();
+            for offset in &offsets {
+                if let Ok(offset) = u64::try_from(*offset) {
+                    if let Some(address) = section.address().checked_add(offset) {
+                        owners_by_address.entry(address).or_default();
+                    }
+                }
+            }
+            for symbol in file
+                .symbols()
+                .filter(|symbol| symbol.section_index() == Some(section.index()))
+            {
+                let Some(owners) = owners_by_address.get_mut(&symbol.address()) else {
+                    continue;
+                };
+                if let Some(owner) = symbol.name().ok().and_then(compiler_owner) {
+                    owners.insert(owner);
+                }
+            }
+            for (record, offset) in parsed.records.iter_mut().zip(offsets) {
+                let Ok(offset) = u64::try_from(offset) else {
+                    continue;
+                };
+                let Some(address) = section.address().checked_add(offset) else {
+                    continue;
+                };
+                let Some(owners) = owners_by_address.get(&address) else {
+                    continue;
+                };
+                record.definition = match owners.len() {
+                    0 => Definition::Unknown,
+                    1 => match owners.first() {
+                        Some(owner) => Definition::Proven(owner.clone()),
+                        None => Definition::Unknown,
+                    },
+                    _ => Definition::Ambiguous,
+                };
+            }
             let registry = found.get_or_insert_with(Registry::default);
             registry.records.extend(parsed.records);
             registry.malformed += parsed.malformed;
@@ -103,7 +158,14 @@ pub fn read_records(path: &Path) -> Result<Option<Registry>, RegistryError> {
 /// records, such as padding, are skipped. An entry that does not parse is
 /// counted in [`Registry::malformed`], never dropped silently.
 #[must_use]
+#[implements("FR-006-AC-1")]
 pub fn parse_records(bytes: &[u8]) -> Registry {
+    parse_records_with_offsets(bytes).0
+}
+
+#[implements("FR-006-AC-24")]
+fn parse_records_with_offsets(bytes: &[u8]) -> (Registry, Vec<usize>) {
+    let mut offsets = Vec::new();
     let mut registry = Registry::default();
     let mut rest = bytes;
     while let Some(start) = find(rest, FAMILY) {
@@ -120,12 +182,80 @@ pub fn parse_records(bytes: &[u8]) -> Registry {
             break;
         };
         match parse_one(&body[..end]) {
-            Some(record) => registry.records.push(record),
+            Some(record) => {
+                offsets.push(bytes.len() - rest.len() + start);
+                registry.records.push(record);
+            }
             None => registry.malformed += 1,
         }
         rest = &body[end + 1..];
     }
-    registry
+    (registry, offsets)
+}
+
+/// Only the v0 compiler symbol shape emitted by the supported toolchain proves an owner.
+/// Unknown or stripped symbol forms remain unproved rather than guessing from record fields.
+#[implements("FR-006-AC-24")]
+fn compiler_owner(name: &str) -> Option<String> {
+    rustc_demangle::try_demangle(name).ok()?;
+    let body = name
+        .strip_prefix("__R")
+        .or_else(|| name.strip_prefix("_R"))?;
+    // The emitter defines RECORD in an anonymous const in the function body:
+    // N v (N v OWNER DISAMBIG IDENT("_")) DISAMBIG IDENT("RECORD").
+    // Keep the entire raw OWNER encoding and its original backreference offsets.
+    body.strip_prefix("NvNv")?;
+    let mut proved = None;
+    for boundary in 4..body.len() {
+        let suffix = body.get(boundary..)?;
+        let Some((anonymous, rest)) = wrapper_identifier(suffix) else {
+            continue;
+        };
+        let Some((record, trailing)) = wrapper_identifier(rest) else {
+            continue;
+        };
+        if anonymous != "_" || record != "RECORD" || !trailing.is_empty() {
+            continue;
+        }
+        // Explicit canonical disambiguators make an incorrect boundary that
+        // leaves a wrapper disambiguator in OWNER fail public parser validation.
+        let canonical = format!("_R{}s_1__s_6RECORD", body.get(..boundary)?);
+        let Ok(parsed) = rustc_demangle::try_demangle(&canonical) else {
+            continue;
+        };
+        // Validate that the public parser consumes the intended two wrappers.
+        // Display is used only to check their literal names, never as identity.
+        if !parsed.to_string().ends_with("::_::RECORD") {
+            continue;
+        }
+        if proved.is_some() {
+            return None;
+        }
+        proved = Some(canonical);
+    }
+    proved
+}
+
+/// Parse one v0 wrapper's optional base-62 disambiguator and length-prefixed
+/// ASCII identifier. The complete source and canonical symbols are validated
+/// by rustc-demangle; unknown wrapper structures never establish an owner.
+#[implements("FR-006-AC-24")]
+fn wrapper_identifier(input: &str) -> Option<(&str, &str)> {
+    let input = match input.strip_prefix('s') {
+        Some(disambiguated) => {
+            let (digits, rest) = disambiguated.split_once('_')?;
+            if !digits.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
+                return None;
+            }
+            rest
+        }
+        None => input,
+    };
+    let digits = input.bytes().take_while(u8::is_ascii_digit).count();
+    let length: usize = input.get(..digits)?.parse().ok()?;
+    let input = input.get(digits..)?;
+    let input = input.strip_prefix('_').unwrap_or(input);
+    Some((input.get(..length)?, input.get(length..)?))
 }
 
 /// A `/`-separated form of a path text. Only Windows writes `\` as a separator,
@@ -147,6 +277,7 @@ fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+#[implements("FR-006-AC-1")]
 fn parse_one(body: &[u8]) -> Option<Record> {
     let text = std::str::from_utf8(body).ok()?;
     let mut fields = text.split(SEP);
@@ -159,6 +290,7 @@ fn parse_one(body: &[u8]) -> Option<Record> {
         return None;
     }
     Some(Record {
+        definition: Definition::Unknown,
         ids: ids.split(',').map(str::to_owned).collect(),
         ident: ident.to_owned(),
         module_path: module_path.to_owned(),
@@ -204,5 +336,25 @@ mod tests {
             "crates/my\\pkg/src/lib.rs"
         };
         assert_eq!(file, expected);
+    }
+    #[trace("FR-006-AC-24")]
+    #[test]
+    fn raw_owner_keys_normalize_only_the_record_wrappers() {
+        let first = "_RNvNvNvCs36XdazKT9rZ_7stackeds_7stacked1__6RECORD";
+        let second = "_RNvNvNvCs36XdazKT9rZ_7stackeds_7stackeds_1__6RECORD";
+        let a = super::compiler_owner(first);
+        let b = super::compiler_owner(second);
+        assert!(a.is_some(), "first owner: {a:?}; second: {b:?}");
+        assert_eq!(a, b);
+        let distinct_function = "_RNvNvNvCs36XdazKT9rZ_7stackeds0_7stacked1__6RECORD";
+        let other = super::compiler_owner(distinct_function);
+        assert!(
+            other.is_some(),
+            "a distinct function remains a supported owner"
+        );
+        assert_ne!(
+            a, other,
+            "function disambiguators remain part of raw identity"
+        );
     }
 }

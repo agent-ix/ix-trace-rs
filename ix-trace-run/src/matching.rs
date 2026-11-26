@@ -6,7 +6,9 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Component, Path, PathBuf};
 
-use crate::registry::{slashed, Record};
+use ix_trace_rs::implements;
+
+use crate::registry::{slashed, Definition, Record};
 
 /// Where a test binary's sources live, as cargo reports them.
 #[derive(Clone, Debug)]
@@ -43,6 +45,7 @@ pub struct Matching {
 
 /// Join `records` to the `listed` test names of one binary.
 #[must_use]
+#[implements("FR-006-AC-24", "FR-006-AC-19")]
 pub fn match_records(records: &[Record], listed: &[String], layout: &Layout) -> Matching {
     let mut matching = Matching::default();
 
@@ -53,10 +56,16 @@ pub fn match_records(records: &[Record], listed: &[String], layout: &Layout) -> 
             .or_default()
             .push(record);
     }
-    let mut candidates: Vec<(String, &Record)> = Vec::new();
+    let mut candidates: Vec<(String, Record)> = Vec::new();
     for (name, group) in by_name {
         if let [only] = group.as_slice() {
-            candidates.push((name, only));
+            if only.definition == Definition::Ambiguous {
+                matching.ambiguities.push(vec![(*only).clone()]);
+                continue;
+            }
+            candidates.push((name, (*only).clone()));
+        } else if let Some(combined) = combine_same_definition(&group) {
+            candidates.push((name, combined));
         } else {
             matching
                 .ambiguities
@@ -98,11 +107,38 @@ pub fn match_records(records: &[Record], listed: &[String], layout: &Layout) -> 
 
     for (index, (_, record)) in candidates.iter().enumerate() {
         if !attached[index] && (record.test || prefix_failed[index]) {
-            matching.unmatched.push((*record).clone());
+            matching.unmatched.push(record.clone());
         }
     }
     matching.warnings = misuse_warnings(records);
     matching
+}
+
+/// Multiple attributes are combined only after the compiler-qualified owner agrees.
+#[implements("FR-006-AC-24")]
+fn combine_same_definition(group: &[&Record]) -> Option<Record> {
+    let first = *group.first()?;
+    if !matches!(first.definition, Definition::Proven(_)) {
+        return None;
+    }
+    if !group.iter().all(|record| {
+        record.definition == first.definition
+            && record.file == first.file
+            && record.ident == first.ident
+            && record.module_path == first.module_path
+    }) {
+        return None;
+    }
+    let mut combined = first.clone();
+    combined.test = group.iter().any(|record| record.test);
+    combined.parametrized = group.iter().any(|record| record.parametrized);
+    combined.ids = group
+        .iter()
+        .flat_map(|record| record.ids.iter().cloned())
+        .collect();
+    combined.ids.sort();
+    combined.ids.dedup();
+    Some(combined)
 }
 
 /// The mark a record would give its tests, or `None` when its libtest name
@@ -198,7 +234,7 @@ mod tests {
     use ix_trace_rs::trace;
 
     use super::{match_records, Layout};
-    use crate::registry::Record;
+    use crate::registry::{Definition, Record};
 
     fn layout() -> Layout {
         Layout {
@@ -209,6 +245,7 @@ mod tests {
 
     fn record(ids: &[&str], ident: &str, module: &str, file: &str) -> Record {
         Record {
+            definition: Definition::Proven(format!("{module}::{ident}")),
             ids: ids.iter().map(|s| (*s).to_owned()).collect(),
             ident: ident.to_owned(),
             module_path: module.to_owned(),
@@ -261,7 +298,9 @@ mod tests {
     #[trace("FR-006-AC-19")]
     #[test]
     fn two_records_with_one_libtest_name_mark_nothing() {
-        let a = record(&["X-1"], "check", "c", "src/lib.rs");
+        let mut a = record(&["X-1"], "check", "c", "src/lib.rs");
+        a.test = false;
+        a.definition = Definition::Proven("c::Checker::check".into());
         let b = record(&["TC-5"], "check", "c", "src/lib.rs");
         let matching = match_records(&[a, b], &listed(&["check"]), &layout());
         assert!(matching.marks.is_empty());
@@ -284,5 +323,44 @@ mod tests {
         assert_eq!(matching.marks["p::case_2"].ids, ["TC-6"]);
         assert_eq!(matching.marks["q"].ids, ["TC-7"]);
         assert!(!matching.marks.contains_key("q::inner"));
+    }
+    #[trace("FR-006-AC-24")]
+    #[test]
+    fn stacked_records_union_ids_in_sorted_order_but_single_records_keep_their_order() {
+        let records = [
+            record(&["B-1", "A-1"], "stacked", "c", "src/lib.rs"),
+            record(&["C-1", "A-1"], "stacked", "c", "src/lib.rs"),
+            record(&["B-1", "A-1"], "single", "c", "src/lib.rs"),
+        ];
+        let matching = match_records(&records, &listed(&["stacked", "single"]), &layout());
+        assert!(matching.ambiguities.is_empty());
+        assert_eq!(matching.marks["stacked"].ids, ["A-1", "B-1", "C-1"]);
+        assert_eq!(matching.marks["single"].ids, ["B-1", "A-1"]);
+    }
+
+    #[trace("FR-006-AC-24")]
+    #[test]
+    fn missing_or_distinct_definition_proof_never_merges_records() {
+        for owner in [
+            Definition::Unknown,
+            Definition::Proven("c::host::check".into()),
+        ] {
+            let a = record(&["A-1"], "check", "c", "src/lib.rs");
+            let mut b = record(&["B-1"], "check", "c", "src/lib.rs");
+            b.definition = owner;
+            let matching = match_records(&[a, b], &listed(&["check"]), &layout());
+            assert!(matching.marks.is_empty());
+            assert_eq!(matching.ambiguities.len(), 1);
+        }
+    }
+
+    #[trace("FR-006-AC-24")]
+    #[test]
+    fn conflicting_symbol_owners_never_mark_a_coalesced_record() {
+        let mut r = record(&["A-1"], "check", "c", "src/lib.rs");
+        r.definition = Definition::Ambiguous;
+        let matching = match_records(&[r], &listed(&["check"]), &layout());
+        assert!(matching.marks.is_empty());
+        assert_eq!(matching.ambiguities.len(), 1);
     }
 }

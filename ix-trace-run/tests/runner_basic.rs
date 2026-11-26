@@ -169,3 +169,82 @@ fn tc021_a_clean_run_writes_one_file_and_leaves_no_log() {
     assert!(case(&xml, "from_a").contains("value=\"TC-5a1\""));
     assert!(case(&xml, "from_b").contains("value=\"TC-5b1\""));
 }
+
+#[trace("FR-006-AC-24")]
+#[test]
+fn stacked_attributes_combine_only_when_binary_symbols_prove_an_owner() {
+    use ix_trace_run::registry::{read_records, Definition};
+    use object::{Object, ObjectSymbol};
+
+    let run = runner("stacked", &["--features", "emit"], &["--test-threads=4"]);
+    let binaries = common::build("stacked", &["--features", "emit"]);
+    let executable = &common::binary(&binaries, "stacked").executable;
+    let bytes = std::fs::read(executable).expect("read compiled fixture");
+    let object = object::File::parse(bytes.as_slice()).expect("parse compiled fixture");
+    let record_symbols: Vec<_> = object
+        .symbols()
+        .filter_map(|symbol| symbol.name().ok())
+        .filter(|name| name.contains("RECORD"))
+        .collect();
+    let records = read_records(executable)
+        .expect("read registry")
+        .expect("trace section");
+    if cfg!(windows) {
+        // MSVC's linked PE fixture has no private COFF symbols. PDB companions
+        // are not an input to the binary-only owner proof.
+        assert_eq!(object.format(), object::BinaryFormat::Pe);
+        assert!(
+            record_symbols.is_empty(),
+            "unexpected PE record symbols: {record_symbols:?}"
+        );
+        assert!(
+            records
+                .records
+                .iter()
+                .all(|record| record.definition == Definition::Unknown),
+            "{:?}",
+            records.records
+        );
+        assert_eq!(run.code, Some(1), "{}", run.stderr);
+        for name in ["stacked", "interleaved"] {
+            assert!(
+                run.stderr.contains(&format!(
+                    "ambiguous trace records for libtest name `{name}`"
+                )),
+                "{}",
+                run.stderr
+            );
+            assert!(!case(&run.xml, name).contains("<property"), "{}", run.xml);
+        }
+    } else {
+        assert!(
+            !record_symbols.is_empty(),
+            "fixture has compiler owner symbols"
+        );
+        assert!(
+            records
+                .records
+                .iter()
+                .all(|record| matches!(record.definition, Definition::Proven(_))),
+            "{:?}",
+            records.records
+        );
+        assert_eq!(run.code, Some(0), "{}", run.stderr);
+        assert_eq!(cases_named(&run.xml, "stacked").len(), 1);
+        assert!(
+            case(&run.xml, "interleaved").contains("value=\"TC-804,TC-805\""),
+            "{}",
+            run.xml
+        );
+        assert!(
+            case(&run.xml, "stacked").contains("value=\"TC-801,TC-802,TC-803\""),
+            "{}",
+            run.xml
+        );
+    }
+    assert!(
+        case(&run.xml, "single").contains("value=\"TC-802,TC-801\""),
+        "single-record marking remains portable: {}",
+        run.xml
+    );
+}
