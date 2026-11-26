@@ -85,7 +85,8 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
   and exactly one source definition has that libtest name. Multiple records from stacked
   trace attributes SHALL contribute the sorted, deduplicated union of their ids only
   when their inert object symbols prove the same compiler-qualified function owner,
-  and their file, module, identifier and test/parametrization flags agree. A single
+  and their file, module and identifier agree. Test and parametrization flags are
+  emission-order hints and SHALL be combined by logical OR only after this owner proof. A single
   record SHALL keep its existing behavior. Missing or conflicting owner information
   SHALL NOT establish that multiple records belong to one definition. When records
   from distinct or unproved definitions have one libtest name, the runner SHALL mark no test with any of them, report the
@@ -129,7 +130,7 @@ emitter contract and the harness choice E-9 leaves to PLAT-333.
 - **Plain runs.** Running the same test binaries with plain `cargo test` is
   unchanged.
 
-> **CR-001 note (2026-11-26):** IXTR1 records have no source span. The runner uses the emitted statics' compiler-qualified object-symbol owners to distinguish stacked attributes from separate definitions without changing the macro record format. Missing owner symbols remain a fail-closed ambiguity.
+> **CR-001 note (2026-11-26):** IXTR1 records have no source span. The runner uses the emitted statics' raw compiler-qualified object-symbol owners, preserving function disambiguators and normalizing only the emitted anonymous-record wrappers to distinguish stacked attributes from separate definitions without changing the macro record format. Missing owner symbols remain a fail-closed ambiguity.
 
 ## Constraints
 
